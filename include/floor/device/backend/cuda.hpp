@@ -66,7 +66,7 @@ namespace std {
 	const_func floor_inline_always half fmod(half x, half y) {
 		const auto fx = half_to_float(x);
 		const auto fy = half_to_float(y);
-		return float_to_half(fx - fy * __nvvm_trunc_ftz_f(fx / fy));
+		return float_to_half(fx - fy * __nvvm_floor_ftz_f(fx / fy));
 	}
 	const_func floor_inline_always half fabs(half a) { return float_to_half(__nvvm_fabs_ftz_f(half_to_float(a))); }
 	const_func floor_inline_always half abs(half a) { return float_to_half(fabs(half_to_float(a))); }
@@ -119,7 +119,7 @@ namespace std {
 	// float math functions
 	const_func floor_inline_always float sqrt(float a) { return __nvvm_sqrt_rz_ftz_f(a); }
 	const_func floor_inline_always float rsqrt(float a) { return __nvvm_rsqrt_approx_ftz_f(a); }
-	const_func floor_inline_always float fmod(float x, float y) { return x - y * __nvvm_trunc_ftz_f(x / y); }
+	const_func floor_inline_always float fmod(float x, float y) { return x - y * __nvvm_floor_ftz_f(x / y); }
 	const_func floor_inline_always float fabs(float a) { return __nvvm_fabs_ftz_f(a); }
 	const_func floor_inline_always float abs(float a) { return fabs(a); }
 	const_func floor_inline_always float floor(float a) { return __nvvm_floor_ftz_f(a); }
@@ -151,7 +151,7 @@ namespace std {
 	// double math functions
 	const_func floor_inline_always double sqrt(double a) { return __nvvm_sqrt_rz_d(a); }
 	const_func floor_inline_always double rsqrt(double a) { return __nvvm_rsqrt_approx_d(a); }
-	const_func floor_inline_always double fmod(double x, double y) { return x - y * __nvvm_trunc_d(x / y); }
+	const_func floor_inline_always double fmod(double x, double y) { return x - y * __nvvm_floor_d(x / y); }
 	const_func floor_inline_always double fabs(double a) { return __nvvm_fabs_d(a); }
 	const_func floor_inline_always double abs(double a) { return fabs(a); }
 	const_func floor_inline_always double floor(double a) { return __nvvm_floor_d(a); }

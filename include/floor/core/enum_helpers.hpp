@@ -73,8 +73,14 @@ floor_inline_always constexpr enum_class operator~(const enum_class& e0) { \
 
 #define enum_class_has_flag(enum_class) \
 template <enum_class flag, typename int_type = std::underlying_type_t<enum_class>> \
-floor_inline_always static constexpr bool has_flag(const enum_class& enum_object) { \
+[[maybe_unused]] floor_inline_always static constexpr bool has_flag(const enum_class& enum_object) { \
 	return ((int_type(flag) & int_type(enum_object)) == int_type(flag)); \
+}
+
+#define enum_class_has_any_flag(enum_class) \
+template <enum_class flags, typename int_type = std::underlying_type_t<enum_class>> \
+[[maybe_unused]] floor_inline_always static constexpr bool has_any_flag(const enum_class& enum_object) { \
+	return ((int_type(flags) & int_type(enum_object)) != int_type(0)); \
 }
 
 // combination of the above
@@ -82,10 +88,12 @@ floor_inline_always static constexpr bool has_flag(const enum_class& enum_object
 enum_class_bitwise_or(enum_class) \
 enum_class_bitwise_and(enum_class) \
 enum_class_bitwise_complement(enum_class) \
-enum_class_has_flag(enum_class)
+enum_class_has_flag(enum_class) \
+enum_class_has_any_flag(enum_class)
 
 #define floor_global_enum_ext(enum_class) \
 enum_class_bitwise_or_global(enum_class) \
 enum_class_bitwise_and_global(enum_class) \
 enum_class_bitwise_complement_global(enum_class) \
-enum_class_has_flag(enum_class)
+enum_class_has_flag(enum_class) \
+enum_class_has_any_flag(enum_class)

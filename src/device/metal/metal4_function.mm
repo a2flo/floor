@@ -64,7 +64,7 @@ void metal4_function::execute(const device_queue& cqueue,
 							  const std::vector<device_function_arg>& args,
 							  const std::vector<const device_fence*>& wait_fences,
 							  const std::vector<device_fence*>& signal_fences,
-							  floor_unused_if_release const char* debug_label_,
+							  [[maybe_unused]] const char* debug_label_,
 							  kernel_completion_handler_f&& completion_handler) const {
 	const auto dev = (const metal_device*)&cqueue.get_device();
 	const auto ctx = (const metal_context*)dev->context;
@@ -87,7 +87,7 @@ void metal4_function::execute(const device_queue& cqueue,
 	@autoreleasepool {
 		const auto& entry = *function_iter->second;
 		
-#if defined(FLOOR_DEBUG)
+#if defined(FLOOR_DEBUG) || FLOOR_METAL_PROFILING
 		assert(entry.info);
 		const auto debug_label = (debug_label_ ? debug_label_ : entry.info->name.c_str());
 #else
@@ -100,7 +100,7 @@ void metal4_function::execute(const device_queue& cqueue,
 		
 		id <MTL4ComputeCommandEncoder> encoder = [cmd_buffer.cmd_buffer computeCommandEncoder];
 		[encoder setComputePipelineState:entry.kernel_state];
-#if defined(FLOOR_DEBUG)
+#if defined(FLOOR_DEBUG) || FLOOR_METAL_PROFILING
 		if (debug_label) {
 			[encoder setLabel:[NSString stringWithUTF8String:debug_label]];
 		}
@@ -232,11 +232,8 @@ std::unique_ptr<argument_buffer> metal4_function::create_argument_buffer_interna
 		// find the Metal buffer index
 		uint32_t buffer_idx = 0;
 		for (uint32_t i = 0, count = uint32_t(mtl_entry.info->args.size()); i < std::min(ll_arg_index, count); ++i) {
-			if (has_flag<toolchain::ARG_FLAG::STAGE_INPUT>(mtl_entry.info->args[i].flags)) {
-				// only tessellation evaluation shaders may contain buffers in stage_input
-				if (mtl_entry.info->type == toolchain::FUNCTION_TYPE::TESSELLATION_EVALUATION) {
-					buffer_idx += mtl_entry.info->args[i].size;
-				}
+			if (has_any_flag<toolchain::ARG_FLAG::NON_USER_ARG>(mtl_entry.info->args[i].flags)) {
+				// skip
 			} else if (mtl_entry.info->args[i].image_type == toolchain::ARG_IMAGE_TYPE::NONE) {
 				// all args except for images are buffers
 				++buffer_idx;
@@ -267,7 +264,7 @@ std::unique_ptr<argument_buffer> metal4_function::create_argument_buffer_interna
 			if (has_flag<toolchain::ARG_FLAG::ARGUMENT_BUFFER>(arg_buffer_arg.flags)) {
 				throw std::runtime_error("unsupported argument type in argument buffer (in " + mtl_entry.info->name + " #" + std::to_string(user_arg_index) + ")");
 			}
-			if (has_flag<toolchain::ARG_FLAG::STAGE_INPUT>(arg_buffer_arg.flags) ||
+			if (has_any_flag<toolchain::ARG_FLAG::NON_USER_ARG>(arg_buffer_arg.flags) ||
 				has_flag<toolchain::ARG_FLAG::PUSH_CONSTANT>(arg_buffer_arg.flags) ||
 				has_flag<toolchain::ARG_FLAG::SSBO>(arg_buffer_arg.flags) ||
 				has_flag<toolchain::ARG_FLAG::IUB>(arg_buffer_arg.flags)) {

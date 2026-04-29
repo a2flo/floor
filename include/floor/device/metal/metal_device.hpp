@@ -106,6 +106,9 @@ public:
 	//! true if the device has support for SIMD reduction operations
 	bool simd_reduction { false };
 	
+	//! true if the device has support for hardware mesh shading (M3/A17+)
+	bool hardware_mesh_shading { false };
+	
 	// compute queue used for internal purposes (try not to use this ...)
 	device_queue* internal_queue { nullptr };
 	

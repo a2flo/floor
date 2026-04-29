@@ -176,6 +176,12 @@ template <typename T> struct decay_as<__attribute__((global_as)) T* __restrict> 
 template <typename T> struct decay_as<__attribute__((local_as)) T* __restrict> { using type = std::decay_t<T>; };
 template <typename T> struct decay_as<__attribute__((constant_as)) T* __restrict> { using type = std::decay_t<T>; };
 template <typename T> struct decay_as<__attribute__((generic_as)) T* __restrict> { using type = std::decay_t<T>; };
+#if FLOOR_DEVICE_INFO_MESH_SHADING_SUPPORT
+template <typename T> struct decay_as<__attribute__((mesh_as)) T> { using type = std::decay_t<T>; };
+template <typename T> struct decay_as<__attribute__((task_payload_as)) T> { using type = std::decay_t<T>; };
+template <typename T> struct decay_as<__attribute__((mesh_as)) T* __restrict> { using type = std::decay_t<T>; };
+template <typename T> struct decay_as<__attribute__((task_payload_as)) T* __restrict> { using type = std::decay_t<T>; };
+#endif
 #endif
 template <typename T> using decay_as_t = typename decay_as<T>::type;
 
@@ -442,6 +448,16 @@ template <typename data_type, size_t array_size> using array_param = std::array<
 template <typename data_type, size_t array_size> using array_param = const global std::array<data_type, array_size>&;
 #endif
 
+//! mesh shading task payload
+#if FLOOR_DEVICE_INFO_MESH_SHADING_SUPPORT
+#if defined(FLOOR_DEVICE_METAL) || defined(FLOOR_DEVICE_VULKAN)
+#define task_payload __restrict device_task_payload
+template <typename T> using device_task_payload = __attribute__((task_payload_as)) T&;
+#else
+template <typename T> using task_payload = T&;
+#endif
+#endif
+
 // implementation specific image headers
 #include <floor/device/backend/sampler.hpp>
 #if defined(FLOOR_DEVICE_CUDA)
@@ -465,6 +481,9 @@ template <typename data_type, size_t array_size> using array_param = const globa
 
 // tessellation support
 #include <floor/device/backend/tessellation.hpp>
+
+// mesh shading support
+#include <floor/device/backend/mesh.hpp>
 
 // late function declarations that require any of the prior functionality
 #if defined(FLOOR_DEVICE_METAL)

@@ -79,6 +79,15 @@ public:
 		return (min + max) * scalar_type(0.5);
 	}
 	
+	//! returns the corner vertex position at "index" (in [0, 7]) of this bounding box, with indices in XYZ order
+	constexpr vector_type corner(const uint32_t index) const {
+		return {
+			(index & 0x1u ? max.x : min.x),
+			(index & 0x2u ? max.y : min.y),
+			(index & 0x4u ? max.z : min.z),
+		};
+	}
+	
 #if !defined(FLOOR_NO_MATH_STR)
 	friend std::ostream& operator<<(std::ostream& output, const bbox& box) {
 		output << "(min: " << box.min << ", max: " << box.max << ")";

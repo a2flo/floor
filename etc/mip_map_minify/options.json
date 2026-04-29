@@ -7,7 +7,10 @@
 	"debug": {
 		"emit_debug_info": false,
 		"preprocess_condense": false,
-		"preprocess_preserve_comments": false
+		"preprocess_preserve_comments": false,
+		"error_on_alloca": true,
+		"error_on_ptr_type_alloca": true,
+		"error_on_ptr_int_casts": true
 	},
 	"cuda": {
 		"max_registers": 0,

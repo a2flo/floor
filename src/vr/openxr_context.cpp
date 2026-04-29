@@ -1192,7 +1192,7 @@ vr_context::frame_view_state_t openxr_context::get_frame_view_state(const float&
 	
 	const auto project_matrix = [&frame_view_states, &z_near, &z_far](const VR_EYE eye) {
 		const auto fov = frame_view_states[eye == VR_EYE::LEFT ? 0 : 1].fov.taned();
-		return matrix4f::perspective<true /* !pre_adjusted_fov */, true /* is_right_handed */, true /* is_only_positive_z */>
+		return matrix4f::perspective<true /* !pre_adjusted_fov */, true /* is_right_handed */>
 			(fov.x, fov.y, -fov.z, -fov.w, z_near, z_far);
 	};
 	

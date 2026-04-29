@@ -46,8 +46,14 @@ struct metal4_soft_pipeline_entry : public metal4_resource_tracking<true> {
 		bool wait_until_completion { false };
 	};
 	
+	enum class RENDER_TYPE : uint32_t {
+		VERTEX,
+		INDEXED,
+		MESH,
+	};
+	
 	struct render_command_t {
-		bool is_indexed { true };
+		RENDER_TYPE type { RENDER_TYPE::VERTEX };
 		union {
 			struct {
 				MTLPrimitiveType primitive_type;
@@ -66,6 +72,11 @@ struct metal4_soft_pipeline_entry : public metal4_resource_tracking<true> {
 				int32_t vertex_offset { 0 };
 				uint32_t base_instance { 0u };
 			} indexed;
+			struct {
+				uint3 work_group_count;
+				uint3 local_work_size_task;
+				uint3 local_work_size_mesh;
+			} mesh;
 		};
 	};
 	
@@ -75,6 +86,9 @@ struct metal4_soft_pipeline_entry : public metal4_resource_tracking<true> {
 	std::vector<uint64_t> arg_buffer_gens;
 	std::string debug_label;
 	bool is_complete { false };
+#if defined(FLOOR_DEBUG)
+	bool has_mesh_support { false };
+#endif
 	
 	//! soft-printf handling
 	mutable std::shared_ptr<device_buffer> printf_buffer;
@@ -137,7 +151,9 @@ class metal4_soft_indirect_render_command_encoder final :
 public indirect_render_command_encoder, public metal4_resource_container_t {
 public:
 	metal4_soft_indirect_render_command_encoder(metal4_soft_pipeline_entry& pipeline_entry_,
-												const device& dev_, const graphics_pipeline& pipeline_, const bool is_multi_view_);
+												const device& dev_, const graphics_pipeline& pipeline_,
+												const bool is_multi_view_,
+												const bool is_mesh_shading_);
 	~metal4_soft_indirect_render_command_encoder() override;
 	
 	void set_arguments_vector(std::vector<device_function_arg>&& args) override;
@@ -155,14 +171,18 @@ public:
 												  const uint32_t first_instance = 0u,
 												  const INDEX_TYPE index_type = INDEX_TYPE::UINT) override;
 	
+	indirect_render_command_encoder& draw_mesh(const uint3 work_group_count,
+											   const uint3 local_work_size_task,
+											   const uint3 local_work_size_mesh) override;
+	
 	[[noreturn]] indirect_render_command_encoder& draw_patches(const std::vector<const device_buffer*>, const device_buffer&, const uint32_t,
-															   const uint32_t, const uint32_t, const uint32_t, const uint32_t) override  {
+															   const uint32_t, const uint32_t, const uint32_t, const uint32_t) override {
 		throw std::runtime_error("tessellation is not supported in Metal 4");
 	}
 	
 	[[noreturn]] indirect_render_command_encoder& draw_patches_indexed(const std::vector<const device_buffer*>, const device_buffer&,
 																	   const device_buffer&, const uint32_t, const uint32_t, const uint32_t,
-																	   const uint32_t, const uint32_t, const uint32_t) override  {
+																	   const uint32_t, const uint32_t, const uint32_t) override {
 		throw std::runtime_error("tessellation is not supported in Metal 4");
 	}
 	
@@ -170,11 +190,15 @@ protected:
 	metal4_soft_pipeline_entry& pipeline_entry;
 	const toolchain::function_info* vs_info { nullptr };
 	const toolchain::function_info* fs_info { nullptr };
+	const toolchain::function_info* ts_info { nullptr };
+	const toolchain::function_info* ms_info { nullptr };
 	
 public: // for easy access in metal4_renderer
 	id <MTLRenderPipelineState> pipeline_state { nil };
 	id <MTL4ArgumentTable> vs_arg_table { nil };
 	id <MTL4ArgumentTable> fs_arg_table { nil };
+	id <MTL4ArgumentTable> ts_arg_table { nil };
+	id <MTL4ArgumentTable> ms_arg_table { nil };
 	
 };
 
@@ -194,8 +218,8 @@ protected:
 	const toolchain::function_info* func_info { nullptr };
 	
 	indirect_compute_command_encoder& execute(const uint32_t dim,
-											  const uint3& global_work_size,
-											  const uint3& local_work_size) override;
+											  const uint3 global_work_size,
+											  const uint3 local_work_size) override;
 	
 public: // for easy access in metal4_queue
 	id <MTLComputePipelineState> pipeline_state { nil };

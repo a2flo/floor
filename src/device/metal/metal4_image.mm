@@ -958,7 +958,7 @@ void metal4_image::generate_mip_map_chain(const device_queue& cqueue) {
 		return;
 	}
 	
-#if 1
+#if 0 // NOTE: disabled until Apple fixes their sh...
 	@autoreleasepool {
 		MTL4_CMD_BLOCK_RET((const metal4_queue&)cqueue, "gen_mip_chain", ({
 			if (![image heap]) {

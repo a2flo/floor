@@ -113,13 +113,13 @@ public:
 	void execute(const device_function& kernel,
 				 const work_size_type& global_work_size,
 				 const work_size_type& local_work_size,
-				 const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
-		kernel_execute_forwarder(kernel, false, false, global_work_size, local_work_size, {}, { args... });
+				 Args&&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
+		kernel_execute_forwarder(kernel, false, false, global_work_size, local_work_size, {}, { std::forward<Args>(args)... });
 	}
 	
 	template <typename... Args, class work_size_type>
 	requires (is_valid_work_size_type<work_size_type>())
-	void execute(const device_function&, const work_size_type&, const work_size_type&, const Args&...) const
+	void execute(const device_function&, const work_size_type&, const work_size_type&, Args&&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 	
 	//! enqueues (and executes) the specified kernel into this queue, calling the specified "completion_handler" on kernel completion
@@ -129,14 +129,14 @@ public:
 				 kernel_completion_handler_f&& completion_handler,
 				 const work_size_type& global_work_size,
 				 const work_size_type& local_work_size,
-				 const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
+				 Args&&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
 		kernel_execute_forwarder(kernel, false, false, global_work_size, local_work_size,
-								 std::forward<kernel_completion_handler_f>(completion_handler), { args... });
+								 std::forward<kernel_completion_handler_f>(completion_handler), { std::forward<Args>(args)... });
 	}
 	
 	template <typename... Args, class work_size_type>
 	requires (is_valid_work_size_type<work_size_type>())
-	void execute(const device_function&, kernel_completion_handler_f&&, const work_size_type&, const work_size_type&, const Args&...) const
+	void execute(const device_function&, kernel_completion_handler_f&&, const work_size_type&, const work_size_type&, Args&&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 	
 	//! enqueues and executes the specified kernel into this queue, blocking until execution has finished
@@ -145,13 +145,13 @@ public:
 	void execute_sync(const device_function& kernel,
 					  const work_size_type& global_work_size,
 					  const work_size_type& local_work_size,
-					  const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
-		kernel_execute_forwarder(kernel, false, true, global_work_size, local_work_size, {}, { args... });
+					  Args&&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
+		kernel_execute_forwarder(kernel, false, true, global_work_size, local_work_size, {}, { std::forward<Args>(args)... });
 	}
 	
 	template <typename... Args, class work_size_type>
 	requires (is_valid_work_size_type<work_size_type>())
-	void execute_sync(const device_function&, const work_size_type&, const work_size_type&, const Args&...) const
+	void execute_sync(const device_function&, const work_size_type&, const work_size_type&, Args&&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 	
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
@@ -162,13 +162,13 @@ public:
 	void execute_cooperative(const device_function& kernel,
 							 const work_size_type& global_work_size,
 							 const work_size_type& local_work_size,
-							 const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
-		kernel_execute_forwarder(kernel, true, false, global_work_size, local_work_size, {}, { args... });
+							 Args&&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
+		kernel_execute_forwarder(kernel, true, false, global_work_size, local_work_size, {}, { std::forward<Args>(args)... });
 	}
 	
 	template <typename... Args, class work_size_type>
 	requires (is_valid_work_size_type<work_size_type>())
-	void execute_cooperative(const device_function&, const work_size_type&, const work_size_type&, const Args&...) const
+	void execute_cooperative(const device_function&, const work_size_type&, const work_size_type&, Args&&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 	
 	//! enqueues (and executes cooperatively) the specified kernel into this queue, calling the specified "completion_handler" on kernel completion
@@ -179,15 +179,15 @@ public:
 							 kernel_completion_handler_f&& completion_handler,
 							 const work_size_type& global_work_size,
 							 const work_size_type& local_work_size,
-							 const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
+							 Args&&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
 		kernel_execute_forwarder(kernel, true, false, global_work_size, local_work_size,
-								 std::forward<kernel_completion_handler_f>(completion_handler), { args... });
+								 std::forward<kernel_completion_handler_f>(completion_handler), { std::forward<Args>(args)... });
 	}
 	
 	template <typename... Args, class work_size_type>
 	requires (is_valid_work_size_type<work_size_type>())
 	void execute_cooperative(const device_function&, kernel_completion_handler_f&&,
-							 const work_size_type&, const work_size_type&, const Args&...) const
+							 const work_size_type&, const work_size_type&, Args&&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 	
 	//! enqueues (and executes cooperatively) the specified kernel into this queue, blocking until execution has finished
@@ -197,13 +197,13 @@ public:
 	void execute_cooperative_sync(const device_function& kernel,
 								  const work_size_type& global_work_size,
 								  const work_size_type& local_work_size,
-								  const Args&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
-		kernel_execute_forwarder(kernel, true, true, global_work_size, local_work_size, {}, { args... });
+								  Args&&... args) const __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
+		kernel_execute_forwarder(kernel, true, true, global_work_size, local_work_size, {}, { std::forward<Args>(args)... });
 	}
 	
 	template <typename... Args, class work_size_type>
 	requires (is_valid_work_size_type<work_size_type>())
-	void execute_cooperative_sync(const device_function&, const work_size_type&, const work_size_type&, const Args&...) const
+	void execute_cooperative_sync(const device_function&, const work_size_type&, const work_size_type&, Args&&...) const
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 #endif
 	
@@ -272,6 +272,16 @@ public:
 	//! starts profiling
 	virtual void start_profiling() const;
 	
+	//! callback function type for set_profiling_callback()
+	using profiling_callback_f = std::function<void(const std::string_view /* command buffer label */,
+													const uint64_t /* execution time in [ns] */)>;
+	
+	//! sets a callback that will be called for each completed command buffer during profiling
+	//! NOTE: this will only work on supporting backends
+	virtual void set_profiling_callback(profiling_callback_f&& cb) {
+		profiling_callback = std::move(cb);
+	}
+	
 	//! stops the previously started profiling and returns the elapsed time in microseconds
 	virtual uint64_t stop_profiling() const;
 	
@@ -290,6 +300,7 @@ protected:
 	mutable uint64_t us_prof_start { 0 };
 	const QUEUE_TYPE queue_type { QUEUE_TYPE::ALL };
 	std::string debug_label;
+	profiling_callback_f profiling_callback {};
 	
 	//! internal forwarders to the actual kernel execution implementations
 	void kernel_execute_forwarder(const device_function& kernel,

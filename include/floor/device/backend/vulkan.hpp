@@ -102,8 +102,8 @@ global uint32_t* floor_get_printf_buffer() asm("floor.builtin.get_printf_buffer"
 #include <floor/device/backend/soft_printf.hpp>
 
 template <size_t format_N, typename... Args>
-static void printf(constant const char (&format)[format_N], const Args&... args) {
-	fl::soft_printf::as::printf_impl(format, args...);
+static void printf(constant const char (&format)[format_N], Args&&... args) {
+	fl::soft_printf::as::printf_impl(format, std::forward<Args>(args)...);
 }
 
 // barrier and mem_fence functionality

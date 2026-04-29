@@ -63,13 +63,26 @@ indirect_command_pipeline(desc_) {
 									  MTLIndirectCommandTypeDrawIndexed);
 			icb_desc.maxVertexBufferBindCount = desc.max_vertex_buffer_count;
 			icb_desc.maxFragmentBufferBindCount = desc.max_fragment_buffer_count;
-			icb_desc.maxKernelBufferBindCount = 0;
+			icb_desc.maxObjectBufferBindCount = 0u;
+			icb_desc.maxMeshBufferBindCount = 0u;
+			icb_desc.maxKernelBufferBindCount = 0u;
+		} else if (desc.command_type == indirect_command_description::COMMAND_TYPE::RENDER_MESH) {
+			icb_desc.commandTypes |= (MTLIndirectCommandTypeDraw |
+									  MTLIndirectCommandTypeDrawIndexed |
+									  MTLIndirectCommandTypeDrawMeshThreadgroups);
+			icb_desc.maxVertexBufferBindCount = desc.max_vertex_buffer_count;
+			icb_desc.maxFragmentBufferBindCount = desc.max_fragment_buffer_count;
+			icb_desc.maxObjectBufferBindCount = desc.max_task_buffer_count;
+			icb_desc.maxMeshBufferBindCount = desc.max_mesh_buffer_count;
+			icb_desc.maxKernelBufferBindCount = 0u;
 		} else if (desc.command_type == indirect_command_description::COMMAND_TYPE::COMPUTE) {
 			// NOTE: will only ever dispatch/execute equal-sized threadgroups
 			icb_desc.commandTypes |= MTLIndirectCommandTypeConcurrentDispatch;
 			icb_desc.maxKernelBufferBindCount = desc.max_kernel_buffer_count;
-			icb_desc.maxVertexBufferBindCount = 0;
-			icb_desc.maxFragmentBufferBindCount = 0;
+			icb_desc.maxVertexBufferBindCount = 0u;
+			icb_desc.maxFragmentBufferBindCount = 0u;
+			icb_desc.maxObjectBufferBindCount = 0;
+			icb_desc.maxMeshBufferBindCount = 0;
 		}
 		
 		// we never want to inherit anything
@@ -78,9 +91,7 @@ indirect_command_pipeline(desc_) {
 		
 		// disable everything we don't support or use right now
 		icb_desc.maxKernelThreadgroupMemoryBindCount = 0u;
-		icb_desc.maxObjectBufferBindCount = 0;
-		icb_desc.maxMeshBufferBindCount = 0;
-		icb_desc.maxObjectThreadgroupMemoryBindCount = 0;
+		icb_desc.maxObjectThreadgroupMemoryBindCount = 0u;
 		icb_desc.supportRayTracing = false;
 		icb_desc.supportDynamicAttributeStride = false;
 		icb_desc.supportColorAttachmentMapping = false;
@@ -107,6 +118,10 @@ indirect_command_pipeline(desc_) {
 			
 #if FLOOR_METAL_DEBUG_RS
 			mtl_dev.add_debug_allocation(entry.icb);
+#endif
+			
+#if defined(FLOOR_DEBUG)
+			entry.has_mesh_support = (desc.command_type == indirect_command_description::COMMAND_TYPE::RENDER_MESH);
 #endif
 			
 			pipelines.insert_or_assign(dev.get(), std::move(entry));
@@ -137,7 +152,8 @@ metal4_indirect_command_pipeline::metal_pipeline_entry* metal4_indirect_command_
 indirect_render_command_encoder& metal4_indirect_command_pipeline::add_render_command(const device& dev,
 																					  const graphics_pipeline& pipeline,
 																					  const bool is_multi_view_) {
-	if (desc.command_type != indirect_command_description::COMMAND_TYPE::RENDER) {
+	const auto is_mesh_shading = (desc.command_type == indirect_command_description::COMMAND_TYPE::RENDER_MESH);
+	if (desc.command_type != indirect_command_description::COMMAND_TYPE::RENDER && !is_mesh_shading) {
 		throw std::runtime_error("adding render commands to a compute indirect command pipeline is not allowed");
 	}
 	
@@ -149,7 +165,8 @@ indirect_render_command_encoder& metal4_indirect_command_pipeline::add_render_co
 		throw std::runtime_error("already encoded the max amount of commands in indirect command pipeline " + desc.debug_label);
 	}
 	
-	auto render_enc = std::make_unique<metal4_indirect_render_command_encoder>(*pipeline_entry, uint32_t(commands.size()), dev, pipeline, is_multi_view_);
+	auto render_enc = std::make_unique<metal4_indirect_render_command_encoder>(*pipeline_entry, uint32_t(commands.size()), dev, pipeline,
+																			   is_multi_view_, is_mesh_shading);
 	auto render_enc_ptr = render_enc.get();
 	commands.emplace_back(std::move(render_enc));
 	return *render_enc_ptr;
@@ -317,8 +334,9 @@ void metal4_indirect_command_pipeline::metal_pipeline_entry::printf_init(const d
 metal4_indirect_render_command_encoder::metal4_indirect_render_command_encoder(metal4_indirect_command_pipeline::metal_pipeline_entry& pipeline_entry_,
 																			   const uint32_t command_idx_,
 																			   const device& dev_, const graphics_pipeline& pipeline_,
-																			   const bool is_multi_view_) :
-indirect_render_command_encoder(dev_, pipeline_, is_multi_view_),
+																			   const bool is_multi_view_,
+																			   const bool is_mesh_shading_) :
+indirect_render_command_encoder(dev_, pipeline_, is_multi_view_, is_mesh_shading_),
 metal4_resource_container_t(),
 pipeline_entry(pipeline_entry_), command_idx(command_idx_) {
 	@autoreleasepool {
@@ -329,7 +347,7 @@ pipeline_entry(pipeline_entry_), command_idx(command_idx_) {
 		}
 #if defined(FLOOR_DEBUG)
 		const auto& desc = mtl_render_pipeline.get_description(is_multi_view);
-		if (!desc.support_indirect_rendering) {
+		if (!desc.options.support_indirect_rendering) {
 			log_error("graphics pipeline \"$\" specified for indirect render command does not support indirect rendering",
 					  desc.debug_label);
 			return;
@@ -344,6 +362,17 @@ pipeline_entry(pipeline_entry_), command_idx(command_idx_) {
 			fs_info = mtl_render_pipeline_entry->fs_entry->info;
 			has_soft_printf |= has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(fs_info->flags);
 		}
+		if (mtl_render_pipeline_entry->ts_entry) {
+			ts_info = mtl_render_pipeline_entry->ts_entry->info;
+			has_soft_printf |= has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(ts_info->flags);
+		}
+		if (mtl_render_pipeline_entry->ms_entry) {
+			ms_info = mtl_render_pipeline_entry->ms_entry->info;
+			has_soft_printf |= has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(ms_info->flags);
+		}
+		
+		validate_shader_combinations(dev, vs_info, ts_info, ms_info);
+		
 		command = [pipeline_entry.icb indirectRenderCommandAtIndex:command_idx];
 		[command setRenderPipelineState:mtl_render_pipeline_entry->pipeline_state];
 		
@@ -369,9 +398,11 @@ void metal4_indirect_render_command_encoder::set_arguments_vector(std::vector<de
 	@autoreleasepool {
 		assert(vs_info);
 		std::vector<device_function_arg> implicit_args;
-		const auto vs_has_soft_printf = toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(vs_info->flags);
+		const auto vs_has_soft_printf = (vs_info && toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(vs_info->flags));
 		const auto fs_has_soft_printf = (fs_info && toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(fs_info->flags));
-		if (vs_has_soft_printf || fs_has_soft_printf) {
+		const auto ts_has_soft_printf = (ts_info && toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(ts_info->flags));
+		const auto ms_has_soft_printf = (ms_info && toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(ms_info->flags));
+		if (vs_has_soft_printf || fs_has_soft_printf || ts_has_soft_printf || ms_has_soft_printf) {
 			// NOTE: will use the same printf buffer here, but we need to specify it twice if both functions use it
 			// NOTE: these are automatically added to the used resources
 			if (vs_has_soft_printf) {
@@ -380,12 +411,30 @@ void metal4_indirect_render_command_encoder::set_arguments_vector(std::vector<de
 			if (fs_has_soft_printf) {
 				implicit_args.emplace_back(pipeline_entry.printf_buffer);
 			}
+			if (ts_has_soft_printf) {
+				implicit_args.emplace_back(pipeline_entry.printf_buffer);
+			}
+			if (ms_has_soft_printf) {
+				implicit_args.emplace_back(pipeline_entry.printf_buffer);
+			}
 		}
-		if (!metal4_args::set_and_handle_arguments<metal4_args::ENCODER_TYPE::INDIRECT_SHADER>(dev, command, { vs_info, fs_info },
-																							   args, implicit_args, *this, nullptr,
-																							   &pipeline_entry.arg_buffers, false)) {
-			throw std::runtime_error("failed to encode shader arguments in \"" + vs_info->name + "\" + \"" +
-									 (fs_info ? fs_info->name : "<no-fragment-shader>") + "\"");
+		
+		if (vs_info) {
+			if (!metal4_args::set_and_handle_arguments<metal4_args::ENCODER_TYPE::INDIRECT_SHADER>(dev, command, { vs_info, fs_info },
+																								   args, implicit_args, *this, nullptr,
+																								   &pipeline_entry.arg_buffers, false)) {
+				throw std::runtime_error("failed to encode shader arguments in \"" + vs_info->name + "\" + \"" +
+										 (fs_info ? fs_info->name : "<no-fragment-shader>") + "\"");
+			}
+		} else {
+			assert(ms_info);
+			if (!metal4_args::set_and_handle_arguments<metal4_args::ENCODER_TYPE::INDIRECT_SHADER>(dev, command, { ts_info, ms_info, fs_info },
+																								   args, implicit_args, *this, nullptr,
+																								   &pipeline_entry.arg_buffers, false)) {
+				throw std::runtime_error("failed to encode shader arguments in \"" + ms_info->name + "\" + \"" +
+										 (ts_info ? ts_info->name : "<no-task-shader>") + "\" + \"" +
+										 (fs_info ? fs_info->name : "<no-fragment-shader>"));
+			}
 		}
 	}
 }
@@ -429,6 +478,24 @@ indirect_render_command_encoder& metal4_indirect_render_command_encoder::draw_in
 		}
 		return *this;
 	}
+}
+
+indirect_render_command_encoder& metal4_indirect_render_command_encoder::draw_mesh(const uint3 work_group_count,
+																				   const uint3 local_work_size_task,
+																				   const uint3 local_work_size_mesh) {
+#if defined(FLOOR_DEBUG)
+	if (!pipeline_entry.has_mesh_support) {
+		assert(false);
+		throw std::runtime_error("mesh shading is not supported");
+	}
+#endif
+	
+	@autoreleasepool {
+		[command drawMeshThreadgroups:MTLSize { work_group_count.x, work_group_count.y, work_group_count.z }
+		  threadsPerObjectThreadgroup:MTLSize { local_work_size_task.x, local_work_size_task.y, local_work_size_task.z }
+			threadsPerMeshThreadgroup:MTLSize { local_work_size_mesh.x, local_work_size_mesh.y, local_work_size_mesh.z }];
+	}
+	return *this;
 }
 
 indirect_render_command_encoder& metal4_indirect_render_command_encoder::draw_patches(const std::vector<const device_buffer*> control_point_buffers [[maybe_unused]],
@@ -507,8 +574,8 @@ void metal4_indirect_compute_command_encoder::set_arguments_vector(std::vector<d
 }
 
 indirect_compute_command_encoder& metal4_indirect_compute_command_encoder::execute(const uint32_t dim,
-																				   const uint3& global_work_size,
-																				   const uint3& local_work_size) {
+																				   const uint3 global_work_size,
+																				   const uint3 local_work_size) {
 	// compute sizes
 	auto [grid_dim, block_dim] = ((const metal4_function&)kernel_obj).compute_grid_and_block_dim(*entry, dim,
 																								 global_work_size, local_work_size);

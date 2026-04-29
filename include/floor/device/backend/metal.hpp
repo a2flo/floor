@@ -56,7 +56,9 @@ namespace std {
 	const_func metal_func float log(float) asm("air.fast_log.f32");
 	const_func metal_func float log2(float) asm("air.fast_log2.f32");
 	const_func metal_func float pow(float, float) asm("air.fast_pow.f32");
-	const_func metal_func float fmod(float, float) asm("air.fast_fmod.f32");
+	const_func metal_func float fmod(float a, float b) {
+		return a - b * floor(a / b);
+	}
 
 	const_func metal_func half sqrt(half) asm("air.sqrt.f16");
 	const_func metal_func half rsqrt(half) asm("air.rsqrt.f16");
@@ -88,7 +90,9 @@ namespace std {
 	const_func metal_func half log(half) asm("air.log.f16");
 	const_func metal_func half log2(half) asm("air.log2.f16");
 	const_func metal_func half pow(half, half) asm("air.pow.f16");
-	const_func metal_func half fmod(half, half) asm("air.fmod.f16");
+	const_func metal_func half fmod(half a, half b) {
+		return a - b * floor(a / b);
+	}
 	
 	const_func floor_inline_always metal_func float copysign(float a, float b) {
 		// metal/air doesn't have a builtin function/intrinsic for this and does bit ops instead -> do the same
@@ -264,8 +268,8 @@ global uint32_t* floor_get_printf_buffer() asm("floor.builtin.get_printf_buffer"
 #include <floor/device/backend/soft_printf.hpp>
 
 template <size_t format_N, typename... Args>
-static void printf(constant const char (&format)[format_N], const Args&... args) {
-	fl::soft_printf::as::printf_impl(format, args...);
+static void printf(constant const char (&format)[format_N], Args&&... args) {
+	fl::soft_printf::as::printf_impl(format, std::forward<Args>(args)...);
 }
 
 #endif

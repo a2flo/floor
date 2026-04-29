@@ -146,10 +146,18 @@ static inline void set_argument(const idx_handler& idx,
 			[encoder setVertexBuffer:mtl_buffer_obj
 							  offset:0
 							 atIndex:idx.buffer_idx];
-		} else {
+		} else if (entry.type == FUNCTION_TYPE::FRAGMENT) {
 			[encoder setFragmentBuffer:mtl_buffer_obj
 								offset:0
 							   atIndex:idx.buffer_idx];
+		} else if (entry.type == FUNCTION_TYPE::TASK) {
+			[encoder setObjectBuffer:mtl_buffer_obj
+							  offset:0
+							 atIndex:idx.buffer_idx];
+		} else if (entry.type == FUNCTION_TYPE::MESH) {
+			[encoder setMeshBuffer:mtl_buffer_obj
+							offset:0
+						   atIndex:idx.buffer_idx];
 		}
 	}
 	
@@ -249,10 +257,18 @@ static inline void set_argument(const idx_handler& idx,
 			[encoder setVertexBuffer:mtl_arg_buffer_obj
 							  offset:0
 							 atIndex:idx.buffer_idx];
-		} else {
+		} else if (entry.type == FUNCTION_TYPE::FRAGMENT) {
 			[encoder setFragmentBuffer:mtl_arg_buffer_obj
 								offset:0
 							   atIndex:idx.buffer_idx];
+		} else if (entry.type == FUNCTION_TYPE::TASK) {
+			[encoder setObjectBuffer:mtl_arg_buffer_obj
+							  offset:0
+							 atIndex:idx.buffer_idx];
+		} else if (entry.type == FUNCTION_TYPE::MESH) {
+			[encoder setMeshBuffer:mtl_arg_buffer_obj
+							offset:0
+						   atIndex:idx.buffer_idx];
 		}
 	}
 	
@@ -273,6 +289,9 @@ static inline void set_argument(const idx_handler& idx,
 static constexpr bool image_type_match(floor_unused_if_release const ARG_IMAGE_TYPE ct_image_type,
 									   floor_unused_if_release const IMAGE_TYPE rt_image_type) {
 #if defined(FLOOR_DEBUG)
+	static const auto is_depth_compatible = [](const IMAGE_TYPE img_type) {
+		return (img_type & (IMAGE_TYPE::__FORMAT_MASK | IMAGE_TYPE::__DATA_TYPE_MASK | IMAGE_TYPE::__CHANNELS_MASK)) == IMAGE_TYPE::R32F;
+	};
 	switch (ct_image_type) {
 		case ARG_IMAGE_TYPE::NONE:
 			return false;
@@ -287,17 +306,21 @@ static constexpr bool image_type_match(floor_unused_if_release const ARG_IMAGE_T
 		case ARG_IMAGE_TYPE::IMAGE_2D_ARRAY:
 			return is_image_2d_array(rt_image_type);
 		case ARG_IMAGE_TYPE::IMAGE_2D_DEPTH:
-			return is_image_depth(rt_image_type);
+			return (is_image_depth(rt_image_type) ||
+					(is_image_2d(rt_image_type) && is_depth_compatible(rt_image_type)));
 		case ARG_IMAGE_TYPE::IMAGE_2D_ARRAY_DEPTH:
-			return is_image_depth_array(rt_image_type);
+			return (is_image_depth_array(rt_image_type) ||
+					(is_image_2d_array(rt_image_type) && is_depth_compatible(rt_image_type)));
 		case ARG_IMAGE_TYPE::IMAGE_2D_MSAA:
 			return is_image_2d_msaa(rt_image_type);
 		case ARG_IMAGE_TYPE::IMAGE_2D_ARRAY_MSAA:
 			return is_image_2d_msaa_array(rt_image_type);
 		case ARG_IMAGE_TYPE::IMAGE_2D_MSAA_DEPTH:
-			return is_image_depth_msaa(rt_image_type);
+			return (is_image_depth_msaa(rt_image_type) ||
+					(is_image_2d_msaa(rt_image_type) && is_depth_compatible(rt_image_type)));
 		case ARG_IMAGE_TYPE::IMAGE_2D_ARRAY_MSAA_DEPTH:
-			return is_image_depth_msaa_array(rt_image_type);
+			return (is_image_depth_msaa_array(rt_image_type) ||
+					(is_image_2d_msaa_array(rt_image_type) && is_depth_compatible(rt_image_type)));
 		case ARG_IMAGE_TYPE::IMAGE_3D:
 			return is_image_3d(rt_image_type);
 		case ARG_IMAGE_TYPE::IMAGE_CUBE:
@@ -305,9 +328,11 @@ static constexpr bool image_type_match(floor_unused_if_release const ARG_IMAGE_T
 		case ARG_IMAGE_TYPE::IMAGE_CUBE_ARRAY:
 			return is_image_cube_array(rt_image_type);
 		case ARG_IMAGE_TYPE::IMAGE_CUBE_DEPTH:
-			return is_image_depth_cube(rt_image_type);
+			return (is_image_depth_cube(rt_image_type) ||
+					(is_image_cube(rt_image_type) && is_depth_compatible(rt_image_type)));
 		case ARG_IMAGE_TYPE::IMAGE_CUBE_ARRAY_DEPTH:
-			return is_image_depth_cube_array(rt_image_type);
+			return (is_image_depth_cube_array(rt_image_type) ||
+					(is_image_cube_array(rt_image_type) && is_depth_compatible(rt_image_type)));
 	}
 	floor_unreachable();
 #else
@@ -419,7 +444,7 @@ static inline void set_argument(const idx_handler& idx,
 	set_argument_image_array<enc_type, const device_image* const>(idx, encoder, entry, arg, res_info);
 }
 
-//! returns the entry for the current indices and makes sure that stage_input args are ignored
+//! returns the entry for the current indices and makes sure that non-user args are ignored
 //! NOTE: for normal use, "print_error_on_failure" is true and prints and error when going out-of-bounds,
 //!       however, there may also be a valid use case (set_buffer_mutability), so this can be set to false
 template <bool print_error_on_failure = true>
@@ -446,8 +471,9 @@ static inline const function_info* arg_pre_handler(const std::span<const functio
 		}
 		entry = entries[idx.entry];
 		
-		// ignore any stage input args
-		while (idx.arg < entry->args.size() && has_flag<ARG_FLAG::STAGE_INPUT>(entry->args[idx.arg].flags)) {
+		// ignore any non-user args
+		while (idx.arg < entry->args.size() &&
+			   has_any_flag<ARG_FLAG::NON_USER_ARG>(entry->args[idx.arg].flags)) {
 			++idx.arg;
 		}
 		

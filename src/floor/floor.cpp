@@ -1113,7 +1113,7 @@ bool floor::init_internal(const init_state& state) {
 		// only Metal is available
 		std::vector<PLATFORM_TYPE> platform_defaults { PLATFORM_TYPE::METAL };
 #else // Linux, Windows, ...
-		std::vector<PLATFORM_TYPE> platform_defaults { PLATFORM_TYPE::CUDA, PLATFORM_TYPE::VULKAN, PLATFORM_TYPE::OPENCL };
+		std::vector<PLATFORM_TYPE> platform_defaults { PLATFORM_TYPE::VULKAN, PLATFORM_TYPE::CUDA, PLATFORM_TYPE::OPENCL };
 #endif
 		// always start with the configured one (if one has been set)
 		if(config_platform_type != PLATFORM_TYPE::NONE) {

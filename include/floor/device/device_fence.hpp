@@ -31,14 +31,16 @@ enum class SYNC_STAGE : uint32_t {
 	NONE						= 0u,
 	VERTEX						= (1u << 0u),
 	TESSELLATION				= (1u << 1u),
-	FRAGMENT					= (1u << 2u),
+	TASK						= (1u << 2u),
+	MESH						= (1u << 3u),
+	FRAGMENT					= (1u << 4u),
 	
 	//! mostly Vulkan-specific sync stage (on Metal this aliases FRAGMENT)
-	COLOR_ATTACHMENT_OUTPUT		= (1u << 3u),
+	COLOR_ATTACHMENT_OUTPUT		= (1u << 5u),
 	//! Vulkan-specific sync stage
-	TOP_OF_PIPE					= (1u << 4u),
+	TOP_OF_PIPE					= (1u << 6u),
 	//! Vulkan-specific sync stage
-	BOTTOM_OF_PIPE				= (1u << 5u),
+	BOTTOM_OF_PIPE				= (1u << 7u),
 };
 floor_global_enum_ext(SYNC_STAGE)
 

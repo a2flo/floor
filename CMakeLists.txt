@@ -106,6 +106,7 @@ add_library(${PROJECT_NAME}
 	include/floor/device/backend/image_types.hpp
 	include/floor/device/backend/image.hpp
 	include/floor/device/backend/logger.hpp
+	include/floor/device/backend/mesh.hpp
 	include/floor/device/backend/metal_atomic.hpp
 	include/floor/device/backend/metal_group.hpp
 	include/floor/device/backend/metal_image.hpp

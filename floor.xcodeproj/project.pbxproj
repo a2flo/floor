@@ -790,6 +790,7 @@
 		5CE959F02E368441001965FB /* device_context_flags.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = device_context_flags.hpp; path = include/floor/device/device_context_flags.hpp; sourceTree = SOURCE_ROOT; };
 		5CF729D22F47124C00BFBA4B /* metal4_queue.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal4_queue.hpp; path = include/floor/device/metal/metal4_queue.hpp; sourceTree = SOURCE_ROOT; };
 		5CF729D72F47134500BFBA4B /* metal4_queue.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = metal4_queue.mm; sourceTree = "<group>"; };
+		5CF8B9472F739DA100953400 /* mesh.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = mesh.hpp; sourceTree = "<group>"; };
 		5CFDD0232F54AB78002456D7 /* metal4_soft_indirect_command.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = metal4_soft_indirect_command.mm; sourceTree = "<group>"; };
 		5CFDD0272F54AB8F002456D7 /* metal4_soft_indirect_command.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal4_soft_indirect_command.hpp; path = include/floor/device/metal/metal4_soft_indirect_command.hpp; sourceTree = SOURCE_ROOT; };
 		5CFE62E72E922CC900C5CBFA /* bbox.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = bbox.cpp; sourceTree = "<group>"; };
@@ -1356,6 +1357,7 @@
 				5C6DCA9F2DB098D300627453 /* image.hpp */,
 				5C6DCAA02DB098D300627453 /* image_types.hpp */,
 				5C6DCAA12DB098D300627453 /* logger.hpp */,
+				5CF8B9472F739DA100953400 /* mesh.hpp */,
 				5C6DCAA22DB098D300627453 /* metal.hpp */,
 				5C6DCAA32DB098D300627453 /* metal_atomic.hpp */,
 				5C1E536C2E7EED0E0035371D /* metal_group.hpp */,
@@ -2104,7 +2106,7 @@
 				COMPILATION_CACHE_ENABLE_DIAGNOSTIC_REMARKS = NO;
 				CONFIGURATION_BUILD_DIR = "${SRCROOT}/bin";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 0.5.1;
+				CURRENT_PROJECT_VERSION = 0.5.2;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DYLIB_COMPATIBILITY_VERSION = 0.5.1;
@@ -2288,7 +2290,7 @@
 				COMPILATION_CACHE_ENABLE_DIAGNOSTIC_REMARKS = NO;
 				CONFIGURATION_BUILD_DIR = "${SRCROOT}/bin";
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 0.5.1;
+				CURRENT_PROJECT_VERSION = 0.5.2;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 0.5.1;

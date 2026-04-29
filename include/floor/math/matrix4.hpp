@@ -542,7 +542,7 @@ public:
 	//! returns a perspective projection matrix according to the specified parameters
 	//! NOTE: this function will be selected if the fov parameter is constant (this is beneficial, because tan(x) calls are costly)
 	//! NOTE: right-handed (default) should be selected for Vulkan/Metal, left-handed should be selected for OpenGL
-	template <bool is_right_handed = true, bool is_only_positive_z = true>
+	template <bool is_right_handed = true>
 	static constexpr matrix4 perspective(const scalar_type fov, const scalar_type aspect,
 										 const scalar_type z_near, const scalar_type z_far)
 	__attribute__((enable_if(fov == fov, "perspective with constant field-of-view"))) {
@@ -572,7 +572,7 @@ public:
 	
 	//! returns a perspective projection matrix according to the specified parameters
 	//! NOTE: right-handed should be selected for Vulkan/Metal, left-handed should be selected for OpenGL
-	template <bool is_right_handed = true, bool is_only_positive_z = true>
+	template <bool is_right_handed = true>
 	static constexpr matrix4 perspective(const scalar_type fov, const scalar_type aspect,
 										 const scalar_type z_near, const scalar_type z_far) {
 		using fp_type = std::conditional_t<ext::is_floating_point_v<scalar_type>, scalar_type, float>;
@@ -603,7 +603,7 @@ public:
 	//! NOTE: if "pre_adjusted_fov" is true, assumes all FOV values are already tangents of the half-angles (in radian),
 	//! they have already been adjusted for z_near, and they are already suited for a right-handed matrix
 	//! NOTE: right-handed should be selected for Vulkan/Metal, left-handed should be selected for OpenGL
-	template <bool pre_adjusted_fov = false, bool is_right_handed = true, bool is_only_positive_z = true>
+	template <bool pre_adjusted_fov = false, bool is_right_handed = true>
 	static constexpr matrix4 perspective(const scalar_type fov_left_, const scalar_type fov_right_,
 										 const scalar_type fov_top_, const scalar_type fov_bottom_,
 										 const scalar_type z_near, const scalar_type z_far) {

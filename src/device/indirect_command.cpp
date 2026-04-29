@@ -37,9 +37,15 @@ indirect_command_pipeline::indirect_command_pipeline(const indirect_command_desc
 				  desc.debug_label);
 		valid = false;
 	}
-	if (desc.command_type != indirect_command_description::COMMAND_TYPE::RENDER && (desc.max_vertex_buffer_count > 0 ||
-																					desc.max_fragment_buffer_count > 0)) {
+	if ((desc.command_type != indirect_command_description::COMMAND_TYPE::RENDER &&
+		 desc.command_type != indirect_command_description::COMMAND_TYPE::RENDER_MESH) &&
+		(desc.max_vertex_buffer_count > 0 || desc.max_fragment_buffer_count > 0)) {
 		log_warn("render commands are disabled, but max vertex/fragment buffer count is not 0 in indirect command pipeline \"$\"",
+				 desc.debug_label);
+	}
+	if (desc.command_type != indirect_command_description::COMMAND_TYPE::RENDER_MESH && (desc.max_task_buffer_count > 0 ||
+																						 desc.max_mesh_buffer_count > 0)) {
+		log_warn("render-mesh commands are disabled, but max task/mesh buffer count is not 0 in indirect command pipeline \"$\"",
 				 desc.debug_label);
 	}
 	if (desc.command_type != indirect_command_description::COMMAND_TYPE::COMPUTE && desc.max_kernel_buffer_count > 0) {
@@ -68,6 +74,12 @@ void indirect_command_description::compute_buffer_counts_from_functions(const de
 				case toolchain::FUNCTION_TYPE::VERTEX:
 				case toolchain::FUNCTION_TYPE::TESSELLATION_EVALUATION:
 					max_vertex_buffer_count = std::max(max_vertex_buffer_count, buf_count);
+					break;
+				case toolchain::FUNCTION_TYPE::TASK:
+					max_task_buffer_count = std::max(max_task_buffer_count, buf_count);
+					break;
+				case toolchain::FUNCTION_TYPE::MESH:
+					max_mesh_buffer_count = std::max(max_mesh_buffer_count, buf_count);
 					break;
 				case toolchain::FUNCTION_TYPE::FRAGMENT:
 					max_fragment_buffer_count = std::max(max_fragment_buffer_count, buf_count);
@@ -135,6 +147,12 @@ void indirect_command_description::compute_buffer_counts_from_functions(const de
 			case toolchain::FUNCTION_TYPE::TESSELLATION_EVALUATION:
 				max_vertex_buffer_count = std::max(max_vertex_buffer_count, buf_count);
 				break;
+			case toolchain::FUNCTION_TYPE::TASK:
+				max_task_buffer_count = std::max(max_task_buffer_count, buf_count);
+				break;
+			case toolchain::FUNCTION_TYPE::MESH:
+				max_mesh_buffer_count = std::max(max_mesh_buffer_count, buf_count);
+				break;
 			case toolchain::FUNCTION_TYPE::FRAGMENT:
 				max_fragment_buffer_count = std::max(max_fragment_buffer_count, buf_count);
 				break;
@@ -156,8 +174,9 @@ void indirect_command_pipeline::reset() {
 
 indirect_render_command_encoder::indirect_render_command_encoder(const device& dev_,
 																 const graphics_pipeline& pipeline_,
-																 const bool is_multi_view_) :
-indirect_command_encoder(dev_), pipeline(pipeline_), is_multi_view(is_multi_view_) {
+																 const bool is_multi_view_,
+																 const bool is_mesh_shading_) :
+indirect_command_encoder(dev_), pipeline(pipeline_), is_multi_view(is_multi_view_), is_mesh_shading(is_mesh_shading_) {
 	if (!pipeline.is_valid()) {
 		throw std::runtime_error("invalid graphics_pipeline ('" + pipeline.get_description(false).debug_label +
 							"') specified in indirect render command encoder");

@@ -176,6 +176,93 @@ floor_inline_always const_func float3 get_position_in_patch() { return float3::f
 
 // NOTE: for tessellation evaluation shader instance_id, see vertex shader
 
+//////////////////////////////////////////
+// task/mesh shader
+
+#if FLOOR_DEVICE_INFO_MESH_SHADING_SUPPORT
+
+metal_func void metal_mesh_set_primitive_count(const __mesh_t, uint32_t)
+__attribute__((noduplicate)) asm("air.set_primitive_count_mesh");
+
+metal_func void metal_mesh_set_index(const __mesh_t, uint32_t, uint8_t) asm("air.set_index_mesh");
+metal_func void metal_mesh_set_indices(const __mesh_t, uint32_t, clang_uchar2) asm("air.set_indices_mesh.v2i8");
+metal_func void metal_mesh_set_indices(const __mesh_t, uint32_t, clang_uchar4) asm("air.set_indices_mesh.v4i8");
+
+metal_func void metal_mesh_grid_properties_set_threadgroups(const __mesh_grid_properties_t, clang_uint3)
+__attribute__((noduplicate)) asm("air.set_threadgroups_per_grid_mesh_properties");
+
+template <typename vertex_type, typename primitive_type,
+		  uint32_t max_vertex_count, uint32_t max_primitive_count,
+		  MESH_TOPOLOGY topology = MESH_TOPOLOGY::TRIANGLE>
+requires (__libfloor_is_valid_mesh_vertex_type(vertex_type) && __libfloor_is_valid_mesh_primitive_type(primitive_type))
+struct mesh {
+	static constexpr const bool is_void_primitive = std::is_same_v<primitive_type, void>;
+	
+	//! mesh output type / fragment stage input type
+	using output_type = mesh_output_type<vertex_type, primitive_type>;
+	
+	//! sets the actual output sizes (primitive count and vertex count),
+	//! the vertex count defaults to the max specified vertex count of the mesh (max_vertex_count)
+	void set_output_size(const uint32_t primitive_count, [[maybe_unused]] const uint32_t vertex_count = ~0u) const {
+		metal_mesh_set_primitive_count(mesh, primitive_count);
+	}
+	
+	//! sets the single "index" of a point for the primitive at index "primitive_idx"
+	void set_index(const uint32_t primitive_idx, const uint8_t index) const requires(topology == MESH_TOPOLOGY::POINT) {
+		metal_mesh_set_index(mesh, primitive_idx, index);
+	}
+	
+	//! sets the two "indices" of a line for the primitive at index "primitive_idx"
+	void set_indices(const uint32_t primitive_idx, const uchar2 indices) const requires(topology == MESH_TOPOLOGY::LINE) {
+		metal_mesh_set_indices(mesh, primitive_idx * 2u, indices.to_clang_vector());
+	}
+	
+	//! sets the three "indices" of a triangle for the primitive at index "primitive_idx"
+	void set_indices(const uint32_t primitive_idx, const uchar3 indices) const requires(topology == MESH_TOPOLOGY::TRIANGLE) {
+		metal_mesh_set_index(mesh, primitive_idx * 3u, indices.x);
+		metal_mesh_set_index(mesh, primitive_idx * 3u + 1u, indices.y);
+		metal_mesh_set_index(mesh, primitive_idx * 3u + 2u, indices.z);
+	}
+	
+	void set_vertex(const uint32_t output_position, vertex_type vert) const {
+		__libfloor_mesh_set_vertex(mesh, output_position, vert);
+	}
+	
+	void set_primitive(const uint32_t output_position,
+					   std::conditional_t<!is_void_primitive, primitive_type, int> prim) const requires(!is_void_primitive) {
+		__libfloor_mesh_set_primitive(mesh, output_position, prim);
+	}
+	
+protected:
+	__mesh_t mesh;
+	
+	//! sets a single "index" at the specified "output_position"
+	void set_index_internal(const uint32_t output_position, const uint8_t index) const {
+		metal_mesh_set_index(mesh, output_position, index);
+	}
+	
+	//! sets two consecutive "indices" at the specified "output_position"
+	void set_indices_internal(const uint32_t output_position, const uchar2 indices) const {
+		metal_mesh_set_indices(mesh, output_position, indices.to_clang_vector());
+	}
+	
+	//! sets four consecutive "indices" at the specified "output_position"
+	void set_indices_internal(const uint32_t output_position, const uchar4 indices) const {
+		metal_mesh_set_indices(mesh, output_position, indices.to_clang_vector());
+	}
+};
+
+struct mesh_grid_properties {
+	void emit_tasks(const uint3 work_groups) const {
+		metal_mesh_grid_properties_set_threadgroups(props, work_groups.to_clang_vector());
+	}
+	
+protected:
+	__mesh_grid_properties_t props;
+};
+
+#endif
+
 } // namespace fl
 
 #endif

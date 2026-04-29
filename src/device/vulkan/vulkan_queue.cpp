@@ -47,11 +47,14 @@ static VkPipelineStageFlagBits2 sync_stage_to_vulkan_pipeline_stage(const SYNC_S
 	if (has_flag<SYNC_STAGE::VERTEX>(stage)) {
 		vk_stages |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
 	}
-	if (has_flag<SYNC_STAGE::TESSELLATION>(stage)) {
-		vk_stages |= VK_PIPELINE_STAGE_2_TESSELLATION_EVALUATION_SHADER_BIT;
-	}
 	if (has_flag<SYNC_STAGE::FRAGMENT>(stage)) {
 		vk_stages |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+	}
+	if (has_flag<SYNC_STAGE::TASK>(stage)) {
+		vk_stages |= VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT;
+	}
+	if (has_flag<SYNC_STAGE::MESH>(stage)) {
+		vk_stages |= VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT;
 	}
 	if (has_flag<SYNC_STAGE::COLOR_ATTACHMENT_OUTPUT>(stage)) {
 		vk_stages |= VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -734,8 +737,9 @@ bool vulkan_queue::execute_secondary_command_buffer(const vulkan_command_buffer&
 	vkCmdExecuteCommands(primary_cmd_buffer.cmd_buffer, 1, &secondary_cmd_buffer.cmd_buffer);
 	
 	// we need to hold onto the secondary cmd buffer until the primary cmd buffer has completed
-	add_completion_handler(primary_cmd_buffer, [this, sec_cmd_buffer_idx = secondary_cmd_buffer.index]() {
-		impl->thread_secondary_cmd_pool->release_secondary_command_buffer(sec_cmd_buffer_idx);
+	assert(impl->thread_secondary_cmd_pool);
+	add_completion_handler(primary_cmd_buffer, [sec_pool = impl->thread_secondary_cmd_pool, sec_cmd_buffer_idx = secondary_cmd_buffer.index]() {
+		sec_pool->release_secondary_command_buffer(sec_cmd_buffer_idx);
 	});
 	secondary_cmd_buffer.reset();
 	

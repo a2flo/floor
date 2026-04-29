@@ -27,7 +27,7 @@
 // <major>.<minor>.<revision><dev_stage>-<build>
 #define FLOOR_MAJOR_VERSION 0
 #define FLOOR_MINOR_VERSION 5
-#define FLOOR_REVISION_VERSION 1
+#define FLOOR_REVISION_VERSION 2
 #define FLOOR_DEV_STAGE_VERSION 0xa1
 #define FLOOR_DEV_STAGE_VERSION_STR "a1"
 // FLOOR_BUILD_VERSION defined in build_version.hpp

@@ -72,8 +72,11 @@ indirect_command_pipeline(desc_) {
 		const auto& vk_dev = (const vulkan_device&)*dev;
 		const auto& vk_dev_ptr = vk_dev.device;
 		
-		vulkan_pipeline_entry entry;
+		vulkan_pipeline_entry entry {};
 		entry.vk_dev = vk_dev_ptr;
+#if defined(FLOOR_DEBUG)
+		entry.has_mesh_support = (desc.command_type == indirect_command_description::COMMAND_TYPE::RENDER_MESH);
+#endif
 		
 		// when this is a compute pipeline and the device supports a separate compute-only queue family: create for both ALL and COMPUTE queues
 		const auto needs_compute_only = (desc.command_type == indirect_command_description::COMMAND_TYPE::COMPUTE &&
@@ -138,6 +141,10 @@ indirect_command_pipeline(desc_) {
 																  vk_dev.descriptor_buffer_offset_alignment);
 			entry.per_cmd_size += const_math::round_next_multiple(vk_dev.desc_buffer_sizes.ssbo * desc.max_fragment_buffer_count,
 																  vk_dev.descriptor_buffer_offset_alignment);
+			entry.per_cmd_size += const_math::round_next_multiple(vk_dev.desc_buffer_sizes.ssbo * desc.max_task_buffer_count,
+																  vk_dev.descriptor_buffer_offset_alignment);
+			entry.per_cmd_size += const_math::round_next_multiple(vk_dev.desc_buffer_sizes.ssbo * desc.max_mesh_buffer_count,
+																  vk_dev.descriptor_buffer_offset_alignment);
 		}
 		
 		const auto cmd_params_size = desc.max_command_count * entry.per_cmd_size;
@@ -190,7 +197,8 @@ vulkan_indirect_command_pipeline::vulkan_pipeline_entry* vulkan_indirect_command
 indirect_render_command_encoder& vulkan_indirect_command_pipeline::add_render_command(const device& dev,
 																					  const graphics_pipeline& pipeline,
 																					  const bool is_multi_view_) {
-	if (desc.command_type != indirect_command_description::COMMAND_TYPE::RENDER) {
+	const auto is_mesh_shading = (desc.command_type == indirect_command_description::COMMAND_TYPE::RENDER_MESH);
+	if (desc.command_type != indirect_command_description::COMMAND_TYPE::RENDER && !is_mesh_shading) {
 		throw std::runtime_error("adding render commands to a compute indirect command pipeline is not allowed");
 	}
 	
@@ -202,7 +210,8 @@ indirect_render_command_encoder& vulkan_indirect_command_pipeline::add_render_co
 		throw std::runtime_error("already encoded the max amount of commands in indirect command pipeline " + desc.debug_label);
 	}
 	
-	auto render_enc = std::make_unique<vulkan_indirect_render_command_encoder>(*pipeline_entry, uint32_t(commands.size()), dev, pipeline, is_multi_view_);
+	auto render_enc = std::make_unique<vulkan_indirect_render_command_encoder>(*pipeline_entry, uint32_t(commands.size()), dev, pipeline,
+																			   is_multi_view_, is_mesh_shading);
 	auto render_enc_ptr = render_enc.get();
 	commands.emplace_back(std::move(render_enc));
 	return *render_enc_ptr;
@@ -320,8 +329,10 @@ void vulkan_indirect_command_pipeline::vulkan_pipeline_entry::printf_completion(
 vulkan_indirect_render_command_encoder::vulkan_indirect_render_command_encoder(const vulkan_indirect_command_pipeline::vulkan_pipeline_entry& pipeline_entry_,
 																			   const uint32_t command_idx_,
 																			   const device& dev_, const graphics_pipeline& pipeline_,
-																			   const bool is_multi_view_) :
-indirect_render_command_encoder(dev_, pipeline_, is_multi_view_), pipeline_entry(pipeline_entry_), command_idx(command_idx_) {
+																			   const bool is_multi_view_,
+																			   const bool is_mesh_shading_) :
+indirect_render_command_encoder(dev_, pipeline_, is_multi_view_, is_mesh_shading_),
+pipeline_entry(pipeline_entry_), command_idx(command_idx_) {
 	const auto& vk_render_pipeline = (const vulkan_pipeline&)pipeline;
 	const auto& vk_dev = (const vulkan_device&)dev;
 	pipeline_state = vk_render_pipeline.get_vulkan_pipeline_state(vk_dev, is_multi_view,
@@ -339,7 +350,7 @@ indirect_render_command_encoder(dev_, pipeline_, is_multi_view_), pipeline_entry
 	}
 #if defined(FLOOR_DEBUG)
 	const auto& desc = vk_render_pipeline.get_description(false);
-	if (!desc.support_indirect_rendering) {
+	if (!desc.options.support_indirect_rendering) {
 		log_error("graphics pipeline \"$\" specified for indirect render command does not support indirect rendering",
 				  desc.debug_label);
 		return;
@@ -354,6 +365,16 @@ indirect_render_command_encoder(dev_, pipeline_, is_multi_view_), pipeline_entry
 		fs = pipeline_state->fs_entry;
 		has_soft_printf |= has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(fs->info->flags);
 	}
+	if (pipeline_state->ts_entry) {
+		ts = pipeline_state->ts_entry;
+		has_soft_printf |= has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(ts->info->flags);
+	}
+	if (pipeline_state->ms_entry) {
+		ms = pipeline_state->ms_entry;
+		has_soft_printf |= has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(ms->info->flags);
+	}
+	
+	validate_shader_combinations(dev, vs, ts, ms);
 	
 	// NOTE: for render commands/pipelines, this will always be the first per-query data entry
 	cmd_buffer = pipeline_entry.per_queue_data[0].cmd_buffers.at(command_idx);
@@ -402,7 +423,7 @@ indirect_render_command_encoder(dev_, pipeline_, is_multi_view_), pipeline_entry
 		vkCmdSetViewport(cmd_buffer, 0, 1, &cur_viewport);
 		
 		const VkRect2D cur_render_area {
-			// NOTE: Vulkan uses signed integers for the offset, but doesn't actually it to be < 0
+			// NOTE: Vulkan uses signed integers for the offset, but doesn't actually allow it to be < 0
 			.offset = { int(pipeline_desc.scissor.offset.x), int(pipeline_desc.scissor.offset.y) },
 			.extent = { pipeline_desc.scissor.extent.x, pipeline_desc.scissor.extent.y },
 		};
@@ -427,13 +448,21 @@ void vulkan_indirect_render_command_encoder::set_arguments_vector(std::vector<de
 	
 	const auto vs_has_soft_printf = (vs && toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(vs->info->flags));
 	const auto fs_has_soft_printf = (fs && toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(fs->info->flags));
-	if (vs_has_soft_printf || fs_has_soft_printf) {
-		// NOTE: will use the same printf buffer here, but we need to specify it twice if both functions use it
+	const auto ts_has_soft_printf = (ts && toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(ts->info->flags));
+	const auto ms_has_soft_printf = (ms && toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(ms->info->flags));
+	if (vs_has_soft_printf || fs_has_soft_printf || ts_has_soft_printf || ms_has_soft_printf) {
+		// NOTE: will use the same printf buffer here, but we need to specify it for all functions that use it
 		// NOTE: these are automatically added to the used resources
 		if (vs_has_soft_printf) {
 			implicit_args.emplace_back(pipeline_entry.printf_buffer);
 		}
 		if (fs_has_soft_printf) {
+			implicit_args.emplace_back(pipeline_entry.printf_buffer);
+		}
+		if (ts_has_soft_printf) {
+			implicit_args.emplace_back(pipeline_entry.printf_buffer);
+		}
+		if (ms_has_soft_printf) {
 			implicit_args.emplace_back(pipeline_entry.printf_buffer);
 		}
 	}
@@ -668,6 +697,20 @@ void vulkan_indirect_render_command_encoder::draw_internal(const graphics_render
 	}
 }
 
+indirect_render_command_encoder& vulkan_indirect_render_command_encoder::draw_mesh(const uint3 work_group_count [[maybe_unused]],
+																				   const uint3 local_work_size_task [[maybe_unused]],
+																				   const uint3 local_work_size_mesh [[maybe_unused]]) {
+#if defined(FLOOR_DEBUG)
+	if (!pipeline_entry.has_mesh_support) {
+		assert(false);
+		throw std::runtime_error("mesh shading is not supported");
+	}
+#endif
+	
+	// TODO: mesh shading implementation
+	throw std::runtime_error("mesh shading not implemented yet in Vulkan");
+}
+
 indirect_render_command_encoder& vulkan_indirect_render_command_encoder::draw_patches(const std::vector<const device_buffer*> control_point_buffers [[maybe_unused]],
 																					  const device_buffer& tessellation_factors_buffer [[maybe_unused]],
 																					  const uint32_t patch_control_point_count [[maybe_unused]],
@@ -758,8 +801,8 @@ void vulkan_indirect_compute_command_encoder::set_arguments_vector(std::vector<d
 }
 
 indirect_compute_command_encoder& vulkan_indirect_compute_command_encoder::execute(const uint32_t dim floor_unused,
-																				   const uint3& global_work_size,
-																				   const uint3& local_work_size) {
+																				   const uint3 global_work_size,
+																				   const uint3 local_work_size) {
 	const auto& vk_dev = (const vulkan_device&)dev;
 	const auto& vk_kernel = (const vulkan_function&)kernel_obj;
 	const auto& vk_function_entry = (const vulkan_function_entry&)*entry;

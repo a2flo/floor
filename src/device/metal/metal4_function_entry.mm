@@ -83,8 +83,15 @@ bool metal4_function_entry::init(const device_queue& dev_queue) {
 					break;
 				}
 				case ARG_ADDRESS_SPACE::LOCAL:
-					log_error("arg with a local address space is not supported (arg #$ in $)", i, info->name);
-					return false;
+					if (!has_flag<ARG_FLAG::MESH_GRID_PROPERTIES>(arg.flags)) {
+						log_error("arg with a local address space is not supported (arg #$ in $)", i, info->name);
+						return false;
+					}
+					break;
+				case ARG_ADDRESS_SPACE::TASK_PAYLOAD:
+				case ARG_ADDRESS_SPACE::MESH:
+					// no handling necessary
+					break;
 				case ARG_ADDRESS_SPACE::UNKNOWN:
 					if (has_flag<ARG_FLAG::STAGE_INPUT>(arg.flags)) {
 						// ignore

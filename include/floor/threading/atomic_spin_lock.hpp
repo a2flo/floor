@@ -56,7 +56,7 @@ static floor_inline_always void spin_wait_condition(conditional_type&& condition
 	for (uint32_t trial = 0; ; ++trial) {
 		// "conditional" is an invocable function
 		if constexpr (std::is_invocable_v<conditional_type, Args...>) {
-			if (conditional(args...)) {
+			if (conditional(std::forward<Args>(args)...)) {
 				break;
 			}
 		}

@@ -393,10 +393,20 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 			log_msg("architecture: $", arch_str);
 		}
 		
-		// tessellation is only supported on Metal 3
 		if (!device.is_metal4()) {
+			// tessellation is only supported on Metal 3
 			device.tessellation_support = true;
 			device.max_tessellation_factor = 64u;
+			// mesh shading is only supported on Apple GPUs
+			device.mesh_shading_support = (device.vendor == VENDOR::APPLE);
+		} else {
+			// mesh shading is always supported on Metal 4+
+			device.mesh_shading_support = true;
+		}
+		
+		// hardware mesh shading is only available on M3/A17+
+		if ([dev supportsFamily:MTLGPUFamilyApple9]) {
+			device.hardware_mesh_shading = true;
 		}
 		
 		if (has_flag<DEVICE_CONTEXT_FLAGS::DISABLE_HEAP>(context_flags)) {
@@ -1074,8 +1084,19 @@ std::unique_ptr<indirect_command_pipeline> metal_context::create_indirect_comman
 	}
 #endif
 	
+	// if the pipeline uses mesh shading, we have to fall back to soft-indirect when there is a device that doesn't have h/w mesh shading
+	bool requires_soft_indirect = false;
+	if (desc.command_type == indirect_command_description::COMMAND_TYPE::RENDER_MESH) {
+		for (const auto& dev : devices) {
+			if (!((const metal_device*)dev.get())->hardware_mesh_shading) {
+				requires_soft_indirect = true;
+				break;
+			}
+		}
+	}
+	
 	std::unique_ptr<indirect_command_pipeline> pipeline;
-	if (floor::get_metal_soft_indirect()) {
+	if (floor::get_metal_soft_indirect() || requires_soft_indirect) {
 		if (has_any_metal4_device) [[likely]] {
 			pipeline = std::make_unique<metal4_soft_indirect_command_pipeline>(desc, devices);
 		} else {

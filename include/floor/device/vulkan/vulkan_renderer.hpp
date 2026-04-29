@@ -88,6 +88,9 @@ protected:
 											const patch_draw_indexed_entry* draw_indexed_entry,
 											const std::vector<device_function_arg>& args) override;
 	
+	[[noreturn]] void draw_mesh_internal(const mesh_draw_entry& draw_entry,
+										 const std::vector<device_function_arg>& args) override;
+	
 	bool update_vulkan_pipeline();
 	
 	const vulkan_pipeline_state_t* vk_pipeline_state { nullptr };
@@ -99,6 +102,8 @@ protected:
 	bool commit_internal(const bool is_blocking, const bool is_finishing,
 						 completion_handler_f&& user_compl_handler,
 						 std::function<void(const vulkan_command_buffer&)>&& renderer_compl_handler = {});
+	
+	void switch_cull_mode(const CULL_MODE new_cull_mode) override;
 	
 };
 

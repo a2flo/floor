@@ -84,6 +84,9 @@ protected:
 					   const std::span<const multi_draw_indexed_entry> draw_indexed_entries,
 					   const std::vector<device_function_arg>& args) override;
 	
+	void draw_mesh_internal(const mesh_draw_entry& draw_entry,
+							const std::vector<device_function_arg>& args) override;
+	
 	void draw_patches_internal(const patch_draw_entry* draw_entry,
 							   const patch_draw_indexed_entry* draw_indexed_entry,
 							   const std::vector<device_function_arg>& args) override;
@@ -95,6 +98,8 @@ protected:
 	bool commit_internal(const bool is_blocking, const bool is_finishing,
 						 completion_handler_f&& user_compl_handler,
 						 completion_handler_f&& renderer_compl_handler = {});
+	
+	void switch_cull_mode(const CULL_MODE new_cull_mode) override;
 	
 };
 

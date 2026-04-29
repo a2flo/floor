@@ -55,6 +55,15 @@ public:
 							  const metal_function_entry* fragment_shader,
 							  const std::vector<device_function_arg>& args) const;
 	
+	//! sets and handles all task, mesh and fragment shader arguments in the specified encoder
+	void set_shader_arguments(const device_queue& cqueue,
+							  id <MTLRenderCommandEncoder> encoder,
+							  id <MTLCommandBuffer> cmd_buffer,
+							  const metal_function_entry* task_shader,
+							  const metal_function_entry* mesh_shader,
+							  const metal_function_entry* fragment_shader,
+							  const std::vector<device_function_arg>& args) const;
+	
 	//! enqueue draw call(s) of the specified primitive type in the specified encoder
 	void draw(id <MTLRenderCommandEncoder> encoder, const PRIMITIVE& primitive,
 			  const std::span<const graphics_renderer::multi_draw_entry> draw_entries) const;
@@ -62,6 +71,10 @@ public:
 	//! enqueue draw call(s) with indexing of the specified primitive type in the specified encoder
 	void draw(id <MTLRenderCommandEncoder> encoder, const PRIMITIVE& primitive,
 			  const std::span<const graphics_renderer::multi_draw_indexed_entry> draw_indexed_entries) const;
+	
+	//! enqueue draw call(s) of the specified primitive type in the specified encoder
+	void draw(id <MTLRenderCommandEncoder> encoder,
+			  const graphics_renderer::mesh_draw_entry& draw_entry) const;
 	
 	//! enqueue a patch draw call in the specified encoder
 	void draw(id <MTLRenderCommandEncoder> encoder,

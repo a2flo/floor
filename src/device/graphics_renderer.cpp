@@ -27,8 +27,7 @@
 
 namespace fl {
 
-//! when software indirect rendering is enabled, we don't want to treat the renderer as a proper indirect renderer, but a "normal" one instead
-static bool is_software_indirect(const device_context& ctx) {
+bool graphics_renderer::is_software_indirect(const device_context& ctx) {
 	switch (ctx.get_platform_type()) {
 		case PLATFORM_TYPE::METAL:
 			return floor::get_metal_soft_indirect();
@@ -42,7 +41,8 @@ static bool is_software_indirect(const device_context& ctx) {
 
 graphics_renderer::graphics_renderer(const device_queue& cqueue_, const graphics_pass& pass_, const graphics_pipeline& pipeline, const bool multi_view_) :
 cqueue(cqueue_), ctx(cqueue.get_mutable_context()), pass(pass_), cur_pipeline(&pipeline), multi_view(multi_view_),
-is_indirect(pipeline.get_description(multi_view_).support_indirect_rendering && !is_software_indirect(ctx)) {
+is_indirect(pipeline.get_description(multi_view_).options.support_indirect_rendering && !is_software_indirect(ctx)),
+is_dynamic_cull_state(pipeline.get_description(multi_view_).options.dynamic_cull_state) {
 	// TODO: check validity, check compat between pass <-> pipeline, check if cqueue dev is in pass+pipeline
 	
 	// all successful, mark as valid for now (can be changed to false again by derived implementations)
@@ -54,10 +54,22 @@ graphics_renderer::drawable_t::~drawable_t() {
 }
 
 bool graphics_renderer::switch_pipeline(const graphics_pipeline& pipeline) {
-	// TODO: sanity checks
+	// sanity checks
 	if (!pipeline.is_valid()) {
 		return false;
 	}
+	
+	const auto cur_cull_mode = cur_pipeline->get_description(multi_view).cull_mode;
+	const auto new_cull_mode = pipeline.get_description(multi_view).cull_mode;
+	if (cur_cull_mode != new_cull_mode) {
+		if (!is_dynamic_cull_state || !pipeline.get_description(multi_view).options.dynamic_cull_state) {
+			log_error("switched-to pipeline has a different pipeline than the current pipeline, but dynamic cull state is not enabled");
+			return false;
+		}
+		switch_cull_mode(new_cull_mode);
+	}
+	
+	// -> all valid
 	cur_pipeline = &pipeline;
 	return true;
 }
@@ -150,7 +162,9 @@ void graphics_renderer::execute_indirect(const indirect_command_pipeline& indire
 	}
 	
 #if defined(FLOOR_DEBUG)
-	if (indirect_cmd.get_description().command_type != indirect_command_description::COMMAND_TYPE::RENDER) {
+	if (const auto cmd_type = indirect_cmd.get_description().command_type;
+		cmd_type != indirect_command_description::COMMAND_TYPE::RENDER &&
+		cmd_type != indirect_command_description::COMMAND_TYPE::RENDER_MESH) {
 		log_error("specified indirect command pipeline \"$\" must be a render pipeline",
 				  indirect_cmd.get_description().debug_label);
 		return;
@@ -168,7 +182,14 @@ void graphics_renderer::execute_indirect(const indirect_command_pipeline& indire
 	
 	for (uint32_t cmd_idx = 0u; cmd_idx < command_count; ++cmd_idx) {
 		const auto& cmd = generic_indirect_pipeline_entry->commands[cmd_idx];
-		if (!cmd.render.index_buffer) {
+		if (cmd.render.ms_ptr) {
+			const mesh_draw_entry draw_entry {
+				.work_group_count = cmd.render.mesh.work_group_count,
+				.local_work_size_task = cmd.render.mesh.local_work_size_task,
+				.local_work_size_mesh = cmd.render.mesh.local_work_size_mesh,
+			};
+			draw_mesh_internal(draw_entry, cmd.args);
+		} else if (!cmd.render.index_buffer) {
 			std::array<multi_draw_entry, 1> draw_entry { multi_draw_entry {
 				.vertex_count = cmd.render.vertex.vertex_count,
 				.instance_count = cmd.render.vertex.instance_count,

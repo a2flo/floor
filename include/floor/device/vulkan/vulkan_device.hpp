@@ -178,6 +178,9 @@ public:
 	//! feature support: VK_KHR_shader_untyped_pointers
 	bool untyped_pointers_support { false };
 	
+	//! feature support: mesh shading with multi-view rendering support (at least 4 layers/views)
+	bool mesh_shading_multi_view_support { false };
+	
 	// put these at the end, b/c they are rather large
 #if !defined(FLOOR_NO_VULKAN)
 	//! fixed sampler descriptor set

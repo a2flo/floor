@@ -44,14 +44,14 @@ public:
 	
 	//! sets/encodes the specified arguments in this buffer
 	template <typename... Args>
-	bool set_arguments(const device_queue& dev_queue, const Args&... args)
+	bool set_arguments(const device_queue& dev_queue, Args&&... args)
 	__attribute__((enable_if(device_queue::check_arg_types<Args...>(), "valid args"))) {
-		return set_arguments(dev_queue, { args... });
+		return set_arguments(dev_queue, { std::forward<Args>(args)... });
 	}
 	
 	//! sets/encodes the specified arguments in this buffer
 	template <typename... Args>
-	bool set_arguments(const device_queue& dev_queue, const Args&...)
+	bool set_arguments(const device_queue& dev_queue, Args&&...)
 	__attribute__((enable_if(!device_queue::check_arg_types<Args...>(), "invalid args"), unavailable("invalid argument(s)!")));
 	
 	//! sets/encodes the specified arguments in this buffer

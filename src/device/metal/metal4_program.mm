@@ -228,6 +228,10 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 #if FLOOR_METAL_DEBUG_RS
 							prog.first->add_debug_allocation(kernel_state);
 #endif
+						} else {
+#if defined(FLOOR_DEBUG) || defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
+							log_debug("$ ($)", info.name, prog.first->name);
+#endif
 						}
 						
 						// success, insert necessary info/data everywhere

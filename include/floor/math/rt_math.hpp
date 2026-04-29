@@ -335,7 +335,7 @@ namespace fl::rt_math {
 	//! returns the fractional part of val
 	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	static floor_inline_always fp_type fractional(const fp_type& val) {
-		return (val - std::trunc(val));
+		return (val - std::floor(val));
 	}
 	
 	//! count leading zeros

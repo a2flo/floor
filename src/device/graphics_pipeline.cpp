@@ -23,7 +23,7 @@ namespace fl {
 
 static std::optional<render_pipeline_description> multi_view_pipeline_modification(const render_pipeline_description& pipeline_desc) {
 	auto mv_pipeline_desc = pipeline_desc;
-	if (mv_pipeline_desc.automatic_multi_view_handling) {
+	if (mv_pipeline_desc.options.automatic_multi_view_handling) {
 		for (auto& att : mv_pipeline_desc.color_attachments) {
 			if (att.automatic_multi_view_transformation && att.format != IMAGE_TYPE::NONE) {
 				att.format |= IMAGE_TYPE::FLAG_ARRAY;
@@ -38,8 +38,9 @@ static std::optional<render_pipeline_description> multi_view_pipeline_modificati
 }
 
 graphics_pipeline::graphics_pipeline(const render_pipeline_description& pipeline_desc_, const bool with_multi_view_support) :
-pipeline_desc(handle_pipeline_defaults(pipeline_desc_, with_multi_view_support ? !pipeline_desc_.automatic_multi_view_handling : false)),
-multi_view_pipeline_desc(with_multi_view_support && pipeline_desc_.automatic_multi_view_handling ?
+pipeline_desc(handle_pipeline_defaults(pipeline_desc_, with_multi_view_support ?
+									   !pipeline_desc_.options.automatic_multi_view_handling : false)),
+multi_view_pipeline_desc(with_multi_view_support && pipeline_desc_.options.automatic_multi_view_handling ?
 						 multi_view_pipeline_modification(handle_pipeline_defaults(pipeline_desc_, true)) : std::nullopt),
 multi_view_capable(with_multi_view_support) {
 	// TODO: check validity

@@ -206,6 +206,74 @@ floor_inline_always const_func float3 get_position_in_patch() { return float3::f
 
 // NOTE: for tessellation evaluation shader instance_id, see vertex shader
 
+//////////////////////////////////////////
+// task/mesh shader
+
+#if FLOOR_DEVICE_INFO_MESH_SHADING_SUPPORT
+
+void vulkan_mesh_set_output_size(uint32_t, uint32_t) __attribute__((noduplicate)) asm("floor.mesh.set_output_size");
+
+void vulkan_mesh_set_index_point(uint32_t, uint32_t) asm("floor.mesh.set_index.point");
+void vulkan_mesh_set_index_line(uint32_t, clang_uint2) asm("floor.mesh.set_index.line");
+void vulkan_mesh_set_index_triangle(uint32_t, clang_uint3) asm("floor.mesh.set_index.triangle");
+
+void vulkan_mesh_emit_tasks(clang_uint3) __attribute__((noduplicate)) asm("floor.mesh.emit_tasks");
+
+template <typename vertex_type, typename primitive_type,
+		  uint32_t max_vertex_count, uint32_t max_primitive_count,
+		  MESH_TOPOLOGY topology = MESH_TOPOLOGY::TRIANGLE>
+requires (__libfloor_is_valid_mesh_vertex_type(vertex_type) && __libfloor_is_valid_mesh_primitive_type(primitive_type))
+struct mesh {
+	static constexpr const bool is_void_primitive = std::is_same_v<primitive_type, void>;
+	
+	//! mesh output type / fragment stage input type
+	using output_type = mesh_output_type<vertex_type, primitive_type>;
+	
+	//! sets the actual output sizes (primitive count and vertex count),
+	//! the vertex count defaults to the max specified vertex count of the mesh (max_vertex_count)
+	void set_output_size(const uint32_t primitive_count, const uint32_t vertex_count = ~0u) const {
+		vulkan_mesh_set_output_size(primitive_count, vertex_count != ~0u ? vertex_count : max_vertex_count);
+	}
+	
+	//! sets the single "index" of a point for the primitive at index "primitive_idx"
+	void set_index(const uint32_t primitive_idx, const uint8_t index) const requires(topology == MESH_TOPOLOGY::POINT) {
+		vulkan_mesh_set_index_point(primitive_idx, uint32_t(index));
+	}
+	
+	//! sets the two "indices" of a line for the primitive at index "primitive_idx"
+	void set_indices(const uint32_t primitive_idx, const uchar2 indices) const requires(topology == MESH_TOPOLOGY::LINE) {
+		vulkan_mesh_set_index_line(primitive_idx, indices.cast<uint32_t>().to_clang_vector());
+	}
+	
+	//! sets the three "indices" of a triangle for the primitive at index "primitive_idx"
+	void set_indices(const uint32_t primitive_idx, const uchar3 indices) const requires(topology == MESH_TOPOLOGY::TRIANGLE) {
+		vulkan_mesh_set_index_triangle(primitive_idx, indices.cast<uint32_t>().to_clang_vector());
+	}
+	
+	void set_vertex(const uint32_t output_position, vertex_type vert) const {
+		__libfloor_mesh_set_vertex(mesh, output_position, vert);
+	}
+	
+	void set_primitive(const uint32_t output_position,
+					   std::conditional_t<!is_void_primitive, primitive_type, int> prim) const requires(!is_void_primitive) {
+		__libfloor_mesh_set_primitive(mesh, output_position, prim);
+	}
+	
+protected:
+	__mesh_t mesh;
+};
+
+struct mesh_grid_properties {
+	void emit_tasks(const uint3 work_groups) const {
+		vulkan_mesh_emit_tasks(work_groups.to_clang_vector());
+	}
+	
+protected:
+	__mesh_grid_properties_t props;
+};
+
+#endif
+
 } // namespace fl
 
 #endif

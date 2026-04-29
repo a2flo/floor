@@ -41,7 +41,10 @@ public:
 		id <MTLDepthStencilState> depth_stencil_state { nil };
 		const device_function::function_entry* vs_entry { nullptr };
 		const device_function::function_entry* fs_entry { nullptr };
-		MTL4RenderPipelineDescriptor* pipeline_desc { nullptr };
+		const device_function::function_entry* ts_entry { nullptr };
+		const device_function::function_entry* ms_entry { nullptr };
+		MTL4RenderPipelineDescriptor* vtx_pipeline_desc { nullptr };
+		MTL4MeshRenderPipelineDescriptor* mesh_pipeline_desc { nullptr };
 	};
 	
 	//! return the device specific Metal pipeline state for the specified device (or nullptr if it doesn't exist)

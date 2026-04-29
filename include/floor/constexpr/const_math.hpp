@@ -293,7 +293,7 @@ namespace fl::const_math {
 	//! NOTE: not precise for huge values that don't fit into a 64-bit int!
 	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	constexpr fp_type fmod(const fp_type x, const fp_type y) {
-		return x - y * const_math::trunc(x / y);
+		return x - y * const_math::floor(x / y);
 	}
 	
 	//! decomposes val into its integral and fractional part, fractional is returned, integral is stored in "dst_integral"
@@ -309,7 +309,7 @@ namespace fl::const_math {
 	//! NOTE: not precise for huge values that don't fit into a 64-bit int!
 	template <typename fp_type> requires(ext::is_floating_point_v<fp_type>)
 	constexpr fp_type fractional(const fp_type val) {
-		return val - const_math::trunc(val);
+		return val - const_math::floor(val);
 	}
 	
 	//! computes n!, the factorial of n

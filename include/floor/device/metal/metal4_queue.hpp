@@ -31,6 +31,9 @@
 #include <Metal/Metal.h>
 #endif
 
+//! set to 1 to enable debug labels in release mode as well (otherwise these are only set in debug mode)
+#define FLOOR_METAL_PROFILING 0
+
 namespace fl {
 
 class metal4_command_block;

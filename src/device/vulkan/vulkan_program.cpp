@@ -161,6 +161,10 @@ static std::optional<vulkan_descriptor_set_layout_t> build_descriptor_set_layout
 					log_error("arg with a local address space is not supported (arg #$ in $)", i, func_name);
 					valid_desc = false;
 					break;
+				case ARG_ADDRESS_SPACE::TASK_PAYLOAD:
+				case ARG_ADDRESS_SPACE::MESH:
+					// no handling necessary
+					break;
 				case ARG_ADDRESS_SPACE::UNKNOWN:
 					if (has_flag<ARG_FLAG::STAGE_INPUT>(arg.flags)) {
 						// ignore + compact
@@ -376,9 +380,25 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 					const auto dev = prog.first;
 					const auto& vk_dev = (const vulkan_device&)*dev;
 					
-					const VkShaderStageFlagBits stage = (info.type == FUNCTION_TYPE::VERTEX ? VK_SHADER_STAGE_VERTEX_BIT :
-														 info.type == FUNCTION_TYPE::FRAGMENT ? VK_SHADER_STAGE_FRAGMENT_BIT :
-														 VK_SHADER_STAGE_COMPUTE_BIT /* should notice anything else earlier */);
+					VkShaderStageFlagBits stage {};
+					switch (info.type) {
+						default:
+						case FUNCTION_TYPE::KERNEL:
+							stage = VK_SHADER_STAGE_COMPUTE_BIT;
+							break;
+						case FUNCTION_TYPE::VERTEX:
+							stage = VK_SHADER_STAGE_VERTEX_BIT;
+							break;
+						case FUNCTION_TYPE::FRAGMENT:
+							stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+							break;
+						case FUNCTION_TYPE::TASK:
+							stage = VK_SHADER_STAGE_TASK_BIT_EXT;
+							break;
+						case FUNCTION_TYPE::MESH:
+							stage = VK_SHADER_STAGE_MESH_BIT_EXT;
+							break;
+					}
 					
 					if (!info.has_valid_required_local_size()) {
 						entry->max_local_size = vk_dev.max_local_size;
@@ -427,7 +447,9 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 						.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 						.pNext = &entry->shader_module_info,
 						// NOTE: only valid for compute kernels (or mesh/task) + only when the used local size X dim is a multiple of the SIMD width
-						.flags = (info.type == FUNCTION_TYPE::KERNEL &&
+						.flags = ((info.type == FUNCTION_TYPE::KERNEL ||
+								   info.type == FUNCTION_TYPE::TASK ||
+								   info.type == FUNCTION_TYPE::MESH) &&
 								  (entry->max_local_size.x % entry->stage_sub_group_info.requiredSubgroupSize) == 0u ?
 								  VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT : 0),
 						.stage = stage,

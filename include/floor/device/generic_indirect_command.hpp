@@ -54,6 +54,8 @@ struct generic_indirect_pipeline_entry {
 	struct render_command_t {
 		const device_function* vs_ptr { nullptr };
 		const device_function* fs_ptr { nullptr };
+		const device_function* ts_ptr { nullptr };
+		const device_function* ms_ptr { nullptr };
 		const device_buffer* index_buffer { nullptr };
 		union {
 			struct {
@@ -70,6 +72,11 @@ struct generic_indirect_pipeline_entry {
 				uint32_t first_instance { 0u };
 				INDEX_TYPE index_type { INDEX_TYPE::UINT };
 			} indexed;
+			struct {
+				uint3 work_group_count;
+				uint3 local_work_size_task;
+				uint3 local_work_size_mesh;
+			} mesh;
 		};
 	};
 	
@@ -82,6 +89,10 @@ struct generic_indirect_pipeline_entry {
 	};
 	
 	std::vector<generic_command_t> commands;
+	
+#if defined(FLOOR_DEBUG)
+	bool has_mesh_support { false };
+#endif
 };
 
 //! generic indirect command pipeline implementation (used by CUDA, Host-Compute, OpenCL)
@@ -103,11 +114,6 @@ public:
 	void complete(const device& dev) override;
 	void complete() override;
 	void reset() override;
-	
-	struct command_range_t {
-		uint32_t offset { 0u };
-		uint32_t count { 0u };
-	};
 	
 protected:
 	fl::flat_map<const device*, std::shared_ptr<generic_indirect_pipeline_entry>> pipelines;
@@ -132,8 +138,8 @@ protected:
 	std::vector<device_function_arg> args;
 	
 	indirect_compute_command_encoder& execute(const uint32_t dim,
-											  const uint3& global_work_size,
-											  const uint3& local_work_size) override;
+											  const uint3 global_work_size,
+											  const uint3 local_work_size) override;
 	
 };
 
@@ -142,7 +148,8 @@ class generic_indirect_render_command_encoder final : public indirect_render_com
 public:
 	generic_indirect_render_command_encoder(generic_indirect_pipeline_entry& pipeline_entry_,
 											const device& dev_, const graphics_pipeline& pipeline_,
-											const bool is_multi_view_);
+											const bool is_multi_view_,
+											const bool is_mesh_shading_);
 	~generic_indirect_render_command_encoder() override = default;
 	
 	void set_arguments_vector(std::vector<device_function_arg>&& args) override;
@@ -159,6 +166,10 @@ public:
 												  const int32_t vertex_offset = 0u,
 												  const uint32_t first_instance = 0u,
 												  const INDEX_TYPE index_type = INDEX_TYPE::UINT) override;
+	
+	indirect_render_command_encoder& draw_mesh(const uint3 work_group_count,
+											   const uint3 local_work_size_task,
+											   const uint3 local_work_size_mesh) override;
 	
 	[[noreturn]] indirect_render_command_encoder& draw_patches(const std::vector<const device_buffer*> control_point_buffers,
 															   const device_buffer& tessellation_factors_buffer,
@@ -184,6 +195,10 @@ protected:
 	const device_function::function_entry* vertex_entry { nullptr };
 	const device_function* fragment_shader { nullptr };
 	const device_function::function_entry* fragment_entry { nullptr };
+	const device_function* task_shader { nullptr };
+	const device_function::function_entry* task_entry { nullptr };
+	const device_function* mesh_shader { nullptr };
+	const device_function::function_entry* mesh_entry { nullptr };
 	
 	//! set via set_arguments_vector
 	std::vector<device_function_arg> args;

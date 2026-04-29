@@ -50,6 +50,8 @@ namespace fl::toolchain {
 		TESSELLATION_CONTROL			= (4u),
 		//! aka "post-tessellation vertex shader"
 		TESSELLATION_EVALUATION			= (5u),
+		TASK							= (6u),
+		MESH							= (7u),
 		
 		//! argument buffer structs are treated the same way as actual functions
 		ARGUMENT_BUFFER_STRUCT			= (100u),
@@ -78,6 +80,8 @@ namespace fl::toolchain {
 		LOCAL							= (2u),
 		CONSTANT						= (3u),
 		IMAGE							= (4u),
+		TASK_PAYLOAD					= (5u),
+		MESH							= (6u),
 	};
 
 	//! image type
@@ -129,6 +133,15 @@ namespace fl::toolchain {
 		SSBO							= (1u << 6u),
 		//! Vulkan-only: inline uniform block
 		IUB								= (1u << 7u),
+		//! Metal/Vulkan-only: task payload data
+		TASK_PAYLOAD					= (1u << 8u),
+		//! Metal/Vulkan-only: builtin mesh
+		MESH							= (1u << 9u),
+		//! Metal/Vulkan-only: builtin mesh grid properties
+		MESH_GRID_PROPERTIES			= (1u << 10u),
+		
+		//! combination of all non-user argument types
+		NON_USER_ARG					= (STAGE_INPUT | TASK_PAYLOAD | MESH | MESH_GRID_PROPERTIES),
 	};
 	floor_global_enum_ext(ARG_FLAG)
 
@@ -151,6 +164,13 @@ namespace fl::toolchain {
 		uint32_t required_simd_width { 0u };
 		constexpr bool has_valid_required_simd_width() const {
 			return (required_simd_width != 0u);
+		}
+		
+		//! max emitted mesh shader work groups (if non-zero)
+		//! NOTE: only specified in task shaders
+		uint32_t mesh_max_work_groups { 0u };
+		constexpr bool has_valid_mesh_max_work_groups() const {
+			return (mesh_max_work_groups != 0u);
 		}
 		
 		FUNCTION_TYPE type { FUNCTION_TYPE::NONE };
@@ -287,6 +307,9 @@ namespace fl::toolchain {
 			
 			//! emit an error when there still is an alloca with a pointer type at the end of all optimizations
 			bool error_on_ptr_type_alloca { false };
+			
+			//! emit an error when there is any inttoptr or ptrtoint instruction
+			bool error_on_ptr_int_casts { false };
 		} debug;
 		
 		//! CUDA specific options

@@ -50,19 +50,19 @@ graphics_renderer(cqueue_, pass_, pipeline_, multi_view_) {
 			return;
 		}
 		
-#if defined(FLOOR_DEBUG)
+#if defined(FLOOR_DEBUG) || FLOOR_METAL_PROFILING
 		const auto& pipeline_desc = cur_pipeline->get_description(multi_view);
 #endif
 		
 		// create a command buffer from the specified queue (this will be used throughout until commit)
 		cmd_buffer = ((const metal4_queue&)cqueue).make_command_buffer(
-#if defined(FLOOR_DEBUG)
+#if defined(FLOOR_DEBUG) || FLOOR_METAL_PROFILING
 																	   pipeline_desc.debug_label.c_str()
 #endif
 																	   );
 		assert(cmd_buffer);
 		
-#if defined(FLOOR_DEBUG)
+#if defined(FLOOR_DEBUG) || FLOOR_METAL_PROFILING
 		cmd_buffer.cmd_buffer.label = (pipeline_desc.debug_label.empty() ? @"metal4_renderer" :
 									   [NSString stringWithUTF8String:pipeline_desc.debug_label.c_str()]);
 #endif
@@ -187,7 +187,7 @@ bool metal4_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 							green:pipeline_desc.blend.constant_color.y
 							 blue:pipeline_desc.blend.constant_color.z
 							alpha:pipeline_desc.blend.constant_alpha];
-		if (pipeline_desc.render_wireframe) {
+		if (pipeline_desc.options.render_wireframe) {
 			[encoder setTriangleFillMode:MTLTriangleFillModeLines];
 		}
 		
@@ -463,26 +463,41 @@ static inline void handle_metal_indirect_rendering(const mtl_indirect_cmd_type& 
 					cur_pipeline_state = cmd_encoder.pipeline_state;
 				}
 				
-				[encoder setArgumentTable:cmd_encoder.vs_arg_table atStages:MTLRenderStageVertex];
+				if (cmd_params.type != metal4_soft_pipeline_entry::RENDER_TYPE::MESH) {
+					[encoder setArgumentTable:cmd_encoder.vs_arg_table atStages:MTLRenderStageVertex];
+				} else {
+					if (cmd_encoder.ts_arg_table) {
+						[encoder setArgumentTable:cmd_encoder.ts_arg_table atStages:MTLRenderStageObject];
+					}
+					[encoder setArgumentTable:cmd_encoder.ms_arg_table atStages:MTLRenderStageMesh];
+				}
 				if (cmd_encoder.fs_arg_table) {
 					[encoder setArgumentTable:cmd_encoder.fs_arg_table atStages:MTLRenderStageFragment];
 				}
 				
-				if (!cmd_params.is_indexed) {
-					[encoder drawPrimitives:cmd_params.vertex.primitive_type
-								vertexStart:cmd_params.vertex.first_vertex
-								vertexCount:cmd_params.vertex.vertex_count
-							  instanceCount:cmd_params.vertex.instance_count
-							   baseInstance:cmd_params.vertex.first_instance];
-				} else {
-					[encoder drawIndexedPrimitives:cmd_params.indexed.primitive_type
-										indexCount:cmd_params.indexed.index_count
-										 indexType:cmd_params.indexed.index_type
-									   indexBuffer:cmd_params.indexed.index_buffer_address
-								 indexBufferLength:cmd_params.indexed.index_buffer_length
-									 instanceCount:cmd_params.indexed.instance_count
-										baseVertex:cmd_params.indexed.vertex_offset
-									  baseInstance:cmd_params.indexed.base_instance];
+				switch (cmd_params.type) {
+					case metal4_soft_pipeline_entry::RENDER_TYPE::VERTEX:
+						[encoder drawPrimitives:cmd_params.vertex.primitive_type
+									vertexStart:cmd_params.vertex.first_vertex
+									vertexCount:cmd_params.vertex.vertex_count
+								  instanceCount:cmd_params.vertex.instance_count
+								   baseInstance:cmd_params.vertex.first_instance];
+						break;
+					case metal4_soft_pipeline_entry::RENDER_TYPE::INDEXED:
+						[encoder drawIndexedPrimitives:cmd_params.indexed.primitive_type
+											indexCount:cmd_params.indexed.index_count
+											 indexType:cmd_params.indexed.index_type
+										   indexBuffer:cmd_params.indexed.index_buffer_address
+									 indexBufferLength:cmd_params.indexed.index_buffer_length
+										 instanceCount:cmd_params.indexed.instance_count
+											baseVertex:cmd_params.indexed.vertex_offset
+										  baseInstance:cmd_params.indexed.base_instance];
+						break;
+					case metal4_soft_pipeline_entry::RENDER_TYPE::MESH:
+						[encoder drawMeshThreadgroups:MTLSize { cmd_params.mesh.work_group_count.x, cmd_params.mesh.work_group_count.y, cmd_params.mesh.work_group_count.z }
+						  threadsPerObjectThreadgroup:MTLSize { cmd_params.mesh.local_work_size_task.x, cmd_params.mesh.local_work_size_task.y, cmd_params.mesh.local_work_size_task.z }
+							threadsPerMeshThreadgroup:MTLSize { cmd_params.mesh.local_work_size_mesh.x, cmd_params.mesh.local_work_size_mesh.y, cmd_params.mesh.local_work_size_mesh.z }];
+						break;
 				}
 			}
 			
@@ -505,7 +520,9 @@ void metal4_renderer::execute_indirect(const indirect_command_pipeline& indirect
 	}
 	
 #if defined(FLOOR_DEBUG)
-	if (indirect_cmd.get_description().command_type != indirect_command_description::COMMAND_TYPE::RENDER) {
+	if (const auto cmd_type = indirect_cmd.get_description().command_type;
+		cmd_type != indirect_command_description::COMMAND_TYPE::RENDER &&
+		cmd_type != indirect_command_description::COMMAND_TYPE::RENDER_MESH) {
 		log_error("specified indirect command pipeline \"$\" must be a render pipeline",
 				  indirect_cmd.get_description().debug_label);
 		return;
@@ -546,6 +563,9 @@ bool metal4_renderer::update_metal_pipeline() {
 		log_error("no pipeline state for device $", dev.name);
 		return false;
 	}
+	if (encoder) {
+		[encoder setRenderPipelineState:mtl_pipeline_state->pipeline_state];
+	}
 	return true;
 }
 
@@ -569,17 +589,41 @@ void metal4_renderer::draw_internal(const std::span<const multi_draw_entry> draw
 	}
 }
 
+void metal4_renderer::draw_mesh_internal(const mesh_draw_entry& draw_entry,
+										 const std::vector<device_function_arg>& args) {
+	@autoreleasepool {
+		const auto ms = (const metal4_shader*)cur_pipeline->get_description(multi_view).mesh_shader;
+		assert(ms);
+		if (!ms->set_shader_arguments(cqueue, encoder, cmd_buffer,
+									  (const metal4_function_entry*)mtl_pipeline_state->ts_entry,
+									  (const metal4_function_entry*)mtl_pipeline_state->ms_entry,
+									  (const metal4_function_entry*)mtl_pipeline_state->fs_entry, args)) {
+			return;
+		}
+		ms->draw(encoder, draw_entry);
+	}
+}
+
 void metal4_renderer::draw_patches_internal(const patch_draw_entry*,
 											const patch_draw_indexed_entry*,
 											const std::vector<device_function_arg>&) {
-	throw std::runtime_error("tessellation is not implemented in Metal 4");
+	throw std::runtime_error("tessellation is not supported in Metal 4");
 }
 
 static inline MTLStages sync_stage_to_metal_render_stages(const SYNC_STAGE stage) {
 	assert(stage != SYNC_STAGE::NONE);
 	MTLStages mtl_stages { 0u };
-	if (has_flag<SYNC_STAGE::VERTEX>(stage) || has_flag<SYNC_STAGE::BOTTOM_OF_PIPE>(stage)) {
+	if (has_flag<SYNC_STAGE::VERTEX>(stage)) {
 		mtl_stages |= MTLStageVertex;
+	}
+	if (has_flag<SYNC_STAGE::TASK>(stage)) {
+		mtl_stages |= MTLStageObject;
+	}
+	if (has_flag<SYNC_STAGE::MESH>(stage)) {
+		mtl_stages |= MTLStageMesh;
+	}
+	if (has_flag<SYNC_STAGE::BOTTOM_OF_PIPE>(stage)) {
+		mtl_stages |= MTLStageVertex | MTLStageObject | MTLStageMesh;
 	}
 	if (has_flag<SYNC_STAGE::FRAGMENT>(stage) || has_flag<SYNC_STAGE::COLOR_ATTACHMENT_OUTPUT>(stage) || has_flag<SYNC_STAGE::TOP_OF_PIPE>(stage)) {
 		mtl_stages |= MTLStageFragment;
@@ -599,6 +643,10 @@ void metal4_renderer::signal_fence(device_fence& fence, const SYNC_STAGE after_s
 		[encoder updateFence:((const metal_fence&)fence).get_metal_fence()
 		  afterEncoderStages:sync_stage_to_metal_render_stages(after_stage)];
 	}
+}
+
+void metal4_renderer::switch_cull_mode(const CULL_MODE new_cull_mode) {
+	[encoder setCullMode:metal4_pipeline::metal_cull_mode_from_cull_mode(new_cull_mode)];
 }
 
 } // namespace fl

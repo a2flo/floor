@@ -455,6 +455,11 @@ namespace fl::device_info {
 		return FLOOR_DEVICE_INFO_MAX_TESSELLATION_FACTOR;
 	}
 	
+	//! returns true if the backend and device have mesh shading support
+	constexpr bool has_mesh_shading_support() {
+		return (FLOOR_DEVICE_INFO_MESH_SHADING_SUPPORT != 0);
+	}
+	
 	//! returns true if basic argument buffers are supported by the device
 	constexpr bool has_argument_buffer_support() {
 		return (FLOOR_DEVICE_INFO_HAS_ARGUMENT_BUFFER_SUPPORT != 0);

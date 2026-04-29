@@ -58,6 +58,15 @@ public:
 							  const std::vector<device_function_arg>& args,
 							  const std::span<const graphics_renderer::multi_draw_indexed_entry> draw_indexed_entries) const;
 	
+	//! sets and handles all task, mesh and fragment shader arguments in the specified encoder
+	bool set_shader_arguments(const device_queue& cqueue,
+							  id <MTL4RenderCommandEncoder> encoder,
+							  metal4_command_buffer& cmd_buffer,
+							  const metal4_function_entry* task_shader,
+							  const metal4_function_entry* mesh_shader,
+							  const metal4_function_entry* fragment_shader,
+							  const std::vector<device_function_arg>& args) const;
+	
 	//! enqueue draw call(s) of the specified primitive type in the specified encoder
 	void draw(id <MTL4RenderCommandEncoder> encoder, const PRIMITIVE& primitive,
 			  const std::span<const graphics_renderer::multi_draw_entry> draw_entries) const;
@@ -65,6 +74,10 @@ public:
 	//! enqueue draw call(s) with indexing of the specified primitive type in the specified encoder
 	void draw(id <MTL4RenderCommandEncoder> encoder, const PRIMITIVE& primitive,
 			  const std::span<const graphics_renderer::multi_draw_indexed_entry> draw_indexed_entries) const;
+	
+	//! enqueue draw call(s) of the specified primitive type in the specified encoder
+	void draw(id <MTL4RenderCommandEncoder> encoder,
+			  const graphics_renderer::mesh_draw_entry& draw_entry) const;
 	
 };
 

@@ -80,6 +80,19 @@ using size_t = __SIZE_TYPE__;
 #define fragment extern "C" __attribute__((fragment_shader, used, visibility("default")))
 #define tessellation_control extern "C" __attribute__((tessellation_control_shader, used, visibility("default"), kernel_dim(1)))
 #define tessellation_evaluation extern "C" __attribute__((tessellation_evaluation_shader, used, visibility("default")))
+#define task_shader_1d(... /* x */) extern "C" __attribute__((task_shader, used, visibility("default"), kernel_dim(1), kernel_work_group_size(__VA_ARGS__)))
+#define task_shader_2d(... /* x, y */) extern "C" __attribute__((task_shader, used, visibility("default"), kernel_dim(2), kernel_work_group_size(__VA_ARGS__)))
+#define task_shader_3d(... /* x, y, z */) extern "C" __attribute__((task_shader, used, visibility("default"), kernel_dim(3), kernel_work_group_size(__VA_ARGS__)))
+#define task_shader_1d_simd(req_simd_width, ... /* x */) extern "C" __attribute__((task_shader, used, visibility("default"), kernel_dim(1), kernel_simd_width(req_simd_width), kernel_work_group_size(__VA_ARGS__)))
+#define task_shader_2d_simd(req_simd_width, ... /* x, y */) extern "C" __attribute__((task_shader, used, visibility("default"), kernel_dim(2), kernel_simd_width(req_simd_width), kernel_work_group_size(__VA_ARGS__)))
+#define task_shader_3d_simd(req_simd_width, ... /* x, y, z */) extern "C" __attribute__((task_shader, used, visibility("default"), kernel_dim(3), kernel_simd_width(req_simd_width), kernel_work_group_size(__VA_ARGS__)))
+#define mesh_shader_1d(... /* x */) extern "C" __attribute__((mesh_shader, used, visibility("default"), kernel_dim(1), kernel_work_group_size(__VA_ARGS__)))
+#define mesh_shader_2d(... /* x, y */) extern "C" __attribute__((mesh_shader, used, visibility("default"), kernel_dim(2), kernel_work_group_size(__VA_ARGS__)))
+#define mesh_shader_3d(... /* x, y, z */) extern "C" __attribute__((mesh_shader, used, visibility("default"), kernel_dim(3), kernel_work_group_size(__VA_ARGS__)))
+#define mesh_shader_1d_simd(req_simd_width, ... /* x */) extern "C" __attribute__((mesh_shader, used, visibility("default"), kernel_dim(1), kernel_simd_width(req_simd_width), kernel_work_group_size(__VA_ARGS__)))
+#define mesh_shader_2d_simd(req_simd_width, ... /* x, y */) extern "C" __attribute__((mesh_shader, used, visibility("default"), kernel_dim(2), kernel_simd_width(req_simd_width), kernel_work_group_size(__VA_ARGS__)))
+#define mesh_shader_3d_simd(req_simd_width, ... /* x, y, z */) extern "C" __attribute__((mesh_shader, used, visibility("default"), kernel_dim(3), kernel_simd_width(req_simd_width), kernel_work_group_size(__VA_ARGS__)))
+#define task_max_mesh_work_groups(x)
 #else // host toolchain
 #if !defined(__WINDOWS__)
 #define FLOOR_ENTRY_POINT_SPEC inline __attribute__((used, visibility("default"))) FLOOR_HOST_COMPUTE_CC_ENTRY_POINT
@@ -101,6 +114,19 @@ using size_t = __SIZE_TYPE__;
 #define fragment FLOOR_ENTRY_POINT_SPEC
 #define tessellation_control FLOOR_ENTRY_POINT_SPEC
 #define tessellation_evaluation FLOOR_ENTRY_POINT_SPEC
+#define task_shader_1d(...) FLOOR_ENTRY_POINT_SPEC_C
+#define task_shader_2d(...) FLOOR_ENTRY_POINT_SPEC_C
+#define task_shader_3d(...) FLOOR_ENTRY_POINT_SPEC_C
+#define task_shader_1d_simd(...) FLOOR_ENTRY_POINT_SPEC_C
+#define task_shader_2d_simd(...) FLOOR_ENTRY_POINT_SPEC_C
+#define task_shader_3d_simd(...) FLOOR_ENTRY_POINT_SPEC_C
+#define mesh_shader_1d(...) FLOOR_ENTRY_POINT_SPEC_C
+#define mesh_shader_2d(...) FLOOR_ENTRY_POINT_SPEC_C
+#define mesh_shader_3d(...) FLOOR_ENTRY_POINT_SPEC_C
+#define mesh_shader_1d_simd(...) FLOOR_ENTRY_POINT_SPEC_C
+#define mesh_shader_2d_simd(...) FLOOR_ENTRY_POINT_SPEC_C
+#define mesh_shader_3d_simd(...) FLOOR_ENTRY_POINT_SPEC_C
+#define task_max_mesh_work_groups(x)
 #endif
 
 // workaround use of "global" in locale header by including it before killing global
@@ -312,6 +338,15 @@ static_assert(FLOOR_DEVICE_INFO_SIMD_WIDTH == fl::host_limits::simd_width);
 #define FLOOR_DEVICE_INFO_TESSELLATION_SUPPORT_0
 
 #define FLOOR_DEVICE_INFO_MAX_TESSELLATION_FACTOR 0u
+
+// mesh shading info
+#if defined(FLOOR_GRAPHICS_HOST_COMPUTE)
+#define FLOOR_DEVICE_INFO_MESH_SHADING_SUPPORT 1
+#define FLOOR_DEVICE_INFO_MESH_SHADING_SUPPORT_1
+#else
+#define FLOOR_DEVICE_INFO_MESH_SHADING_SUPPORT 0
+#define FLOOR_DEVICE_INFO_MESH_SHADING_SUPPORT_0
+#endif
 
 // argument buffer info
 #define FLOOR_DEVICE_INFO_HAS_ARGUMENT_BUFFER_SUPPORT 1

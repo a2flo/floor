@@ -30,7 +30,7 @@
 namespace fl {
 using namespace toolchain;
 
-//! Metal compute/vertex/fragment/argument-buffer argument handler/setter
+//! Metal compute/shader/argument-buffer argument handler/setter
 //! NOTE: do not include manually
 namespace metal_args {
 	enum class ENCODER_TYPE {
@@ -50,11 +50,17 @@ namespace metal_args {
 		std::conditional_t<(enc_type == ENCODER_TYPE::INDIRECT_SHADER), id <MTLIndirectRenderCommand>,
 						   void>>>>>;
 	
-	template <ENCODER_TYPE enc_type>
+	enum class PIPELINE_TYPE {
+		COMPUTE,
+		SHADER,
+		SHADER_MESH,
+	};
+	template <PIPELINE_TYPE pipe_type>
 	using pipeline_selector_t =
-		std::conditional_t<(enc_type == ENCODER_TYPE::COMPUTE), MTLComputePipelineDescriptor,
-		std::conditional_t<(enc_type == ENCODER_TYPE::SHADER), MTLRenderPipelineDescriptor,
-						   void>>;
+		std::conditional_t<(pipe_type == PIPELINE_TYPE::COMPUTE), MTLComputePipelineDescriptor,
+		std::conditional_t<(pipe_type == PIPELINE_TYPE::SHADER), MTLRenderPipelineDescriptor,
+		std::conditional_t<(pipe_type == PIPELINE_TYPE::SHADER_MESH), MTLMeshRenderPipelineDescriptor,
+						   void>>>;
 	
 	struct idx_handler {
 		//! actual argument index (directly corresponding to the C++ source code)
@@ -95,8 +101,12 @@ namespace metal_args {
 		} else if constexpr (enc_type == ENCODER_TYPE::SHADER) {
 			if (entry.type == FUNCTION_TYPE::VERTEX || entry.type == FUNCTION_TYPE::TESSELLATION_EVALUATION) {
 				[encoder setVertexBytes:ptr length:size atIndex:idx.buffer_idx];
-			} else {
+			} else if (entry.type == FUNCTION_TYPE::FRAGMENT) {
 				[encoder setFragmentBytes:ptr length:size atIndex:idx.buffer_idx];
+			} else if (entry.type == FUNCTION_TYPE::TASK) {
+				[encoder setObjectBytes:ptr length:size atIndex:idx.buffer_idx];
+			} else if (entry.type == FUNCTION_TYPE::MESH) {
+				[encoder setMeshBytes:ptr length:size atIndex:idx.buffer_idx];
 			}
 		} else if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
 			memcpy([encoder constantDataAtIndex:arg_buffer_index(idx, arg_buffer_indices)], ptr, size);
@@ -150,10 +160,18 @@ namespace metal_args {
 				[encoder setVertexBuffer:mtl_buffer_obj
 								  offset:0
 								 atIndex:idx.buffer_idx];
-			} else {
+			} else if (entry.type == FUNCTION_TYPE::FRAGMENT) {
 				[encoder setFragmentBuffer:mtl_buffer_obj
 									offset:0
 								   atIndex:idx.buffer_idx];
+			} else if (entry.type == FUNCTION_TYPE::TASK) {
+				[encoder setObjectBuffer:mtl_buffer_obj
+								  offset:0
+								 atIndex:idx.buffer_idx];
+			} else if (entry.type == FUNCTION_TYPE::MESH) {
+				[encoder setMeshBuffer:mtl_buffer_obj
+								offset:0
+							   atIndex:idx.buffer_idx];
 			}
 			if constexpr (enc_type == ENCODER_TYPE::INDIRECT_SHADER) {
 				if (!ignore_heap_alloc) {
@@ -270,23 +288,24 @@ namespace metal_args {
 				[encoder setVertexBuffer:mtl_buffer_obj
 								  offset:0
 								 atIndex:idx.buffer_idx];
-				if constexpr (enc_type == ENCODER_TYPE::SHADER) {
-					((const metal_argument_buffer*)arg_buf)->make_resident(encoder, entry.type);
-				} else {
-					if (!is_heap_alloc) {
-						res_info->read_only.emplace_back(mtl_buffer_obj);
-					}
-				}
-			} else {
+			} else if (entry.type == FUNCTION_TYPE::FRAGMENT) {
 				[encoder setFragmentBuffer:mtl_buffer_obj
 									offset:0
 								   atIndex:idx.buffer_idx];
-				if constexpr (enc_type == ENCODER_TYPE::SHADER) {
-					((const metal_argument_buffer*)arg_buf)->make_resident(encoder, FUNCTION_TYPE::FRAGMENT);
-				} else {
-					if (!is_heap_alloc) {
-						res_info->read_only.emplace_back(mtl_buffer_obj);
-					}
+			} else if (entry.type == FUNCTION_TYPE::TASK) {
+				[encoder setObjectBuffer:mtl_buffer_obj
+								  offset:0
+								 atIndex:idx.buffer_idx];
+			} else if (entry.type == FUNCTION_TYPE::MESH) {
+				[encoder setMeshBuffer:mtl_buffer_obj
+								offset:0
+							   atIndex:idx.buffer_idx];
+			}
+			if constexpr (enc_type == ENCODER_TYPE::SHADER) {
+				((const metal_argument_buffer*)arg_buf)->make_resident(encoder, entry.type);
+			} else {
+				if (!is_heap_alloc) {
+					res_info->read_only.emplace_back(mtl_buffer_obj);
 				}
 			}
 		}
@@ -321,9 +340,15 @@ namespace metal_args {
 			if (entry.type == FUNCTION_TYPE::VERTEX || entry.type == FUNCTION_TYPE::TESSELLATION_EVALUATION) {
 				[encoder setVertexTexture:mtl_image_obj
 								  atIndex:idx.texture_idx];
-			} else {
+			} else if (entry.type == FUNCTION_TYPE::FRAGMENT) {
 				[encoder setFragmentTexture:mtl_image_obj
 									atIndex:idx.texture_idx];
+			} else if (entry.type == FUNCTION_TYPE::TASK) {
+				[encoder setObjectTexture:mtl_image_obj
+								  atIndex:idx.texture_idx];
+			} else if (entry.type == FUNCTION_TYPE::MESH) {
+				[encoder setMeshTexture:mtl_image_obj
+								atIndex:idx.texture_idx];
 			}
 		}
 		
@@ -342,9 +367,15 @@ namespace metal_args {
 				if (entry.type == FUNCTION_TYPE::VERTEX || entry.type == FUNCTION_TYPE::TESSELLATION_EVALUATION) {
 					[encoder setVertexTexture:mtl_image_obj
 									  atIndex:(idx.texture_idx + 1)];
-				} else {
+				} else if (entry.type == FUNCTION_TYPE::FRAGMENT) {
 					[encoder setFragmentTexture:mtl_image_obj
 										atIndex:(idx.texture_idx + 1)];
+				} else if (entry.type == FUNCTION_TYPE::TASK) {
+					[encoder setObjectTexture:mtl_image_obj
+									  atIndex:(idx.texture_idx + 1)];
+				} else if (entry.type == FUNCTION_TYPE::MESH) {
+					[encoder setMeshTexture:mtl_image_obj
+									atIndex:(idx.texture_idx + 1)];
 				}
 			}
 		} else {
@@ -398,9 +429,15 @@ namespace metal_args {
 			if (entry.type == FUNCTION_TYPE::VERTEX || entry.type == FUNCTION_TYPE::TESSELLATION_EVALUATION) {
 				[encoder setVertexTextures:mtl_img_array.data()
 								 withRange:NSRange { idx.texture_idx, count }];
-			} else {
+			} else if (entry.type == FUNCTION_TYPE::FRAGMENT) {
 				[encoder setFragmentTextures:mtl_img_array.data()
 								   withRange:NSRange { idx.texture_idx, count }];
+			} else if (entry.type == FUNCTION_TYPE::TASK) {
+				[encoder setObjectTextures:mtl_img_array.data()
+								 withRange:NSRange { idx.texture_idx, count }];
+			} else if (entry.type == FUNCTION_TYPE::MESH) {
+				[encoder setMeshTextures:mtl_img_array.data()
+							   withRange:NSRange { idx.texture_idx, count }];
 			}
 		}
 	}
@@ -425,7 +462,7 @@ namespace metal_args {
 		set_argument_image_array<enc_type, const device_image* const>(idx, encoder, entry, arg, arg_buffer_indices, res_info);
 	}
 	
-	//! returns the entry for the current indices and makes sure that stage_input args are ignored
+	//! returns the entry for the current indices and makes sure that non-user args are ignored
 	//! NOTE: for normal use, "print_error_on_failure" is true and prints and error when going out-of-bounds,
 	//!       however, there may also be a valid use case (set_buffer_mutability), so this can be set to false
 	template <bool print_error_on_failure = true>
@@ -452,8 +489,8 @@ namespace metal_args {
 			}
 			entry = entries[idx.entry];
 			
-			// ignore any stage input args
-			while (idx.arg < entry->args.size() && has_flag<ARG_FLAG::STAGE_INPUT>(entry->args[idx.arg].flags)) {
+			// ignore any non-user args
+			while (idx.arg < entry->args.size() && has_any_flag<ARG_FLAG::NON_USER_ARG>(entry->args[idx.arg].flags)) {
 				if (entry->type == FUNCTION_TYPE::TESSELLATION_EVALUATION) {
 					// offset buffer index by the amount of vertex attribute buffers
 					idx.buffer_idx += entry->args[idx.arg].size;
@@ -513,7 +550,7 @@ namespace metal_args {
 		++idx.arg;
 	}
 	
-	//! sets and handles all arguments in the compute/vertex/fragment function
+	//! sets and handles all arguments in the compute/shader function
 	//! NOTE: ensure this is enclosed in an @autoreleasepool when called!
 	template <ENCODER_TYPE enc_type>
 	bool set_and_handle_arguments(const device& dev,
@@ -571,9 +608,8 @@ namespace metal_args {
 	
 	//! sets the buffer mutability of all buffers of the specified "entries" in the specified pipeline descriptor
 	//! NOTE: only used by Metal 3
-	template <ENCODER_TYPE enc_type>
-	requires (enc_type == ENCODER_TYPE::COMPUTE || enc_type == ENCODER_TYPE::SHADER)
-	bool set_buffer_mutability(pipeline_selector_t<enc_type>* pipeline_desc,
+	template <PIPELINE_TYPE pipe_type>
+	bool set_buffer_mutability(pipeline_selector_t<pipe_type>* pipeline_desc,
 							   const std::vector<const function_info*>& entries) {
 		idx_handler idx;
 		for (;;) {
@@ -584,7 +620,7 @@ namespace metal_args {
 			
 			if (!idx.is_implicit) {
 				const auto& arg = entry->args[idx.arg];
-				if (has_flag<ARG_FLAG::STAGE_INPUT>(arg.flags) ||
+				if (has_any_flag<ARG_FLAG::NON_USER_ARG>(arg.flags) ||
 					arg.image_type != ARG_IMAGE_TYPE::NONE ||
 					(arg.address_space != ARG_ADDRESS_SPACE::GLOBAL &&
 					 arg.address_space != ARG_ADDRESS_SPACE::CONSTANT)) {
@@ -594,31 +630,53 @@ namespace metal_args {
 					const auto mutability = (arg.access == ARG_ACCESS::READ ?
 											 MTLMutability::MTLMutabilityImmutable : MTLMutability::MTLMutabilityMutable);
 					const auto buf_count = (entry->args[idx.arg].is_array() ? entry->args[idx.arg].array_extent : 1u);
-					if constexpr (enc_type == ENCODER_TYPE::COMPUTE) {
+					if constexpr (pipe_type == PIPELINE_TYPE::COMPUTE) {
 						for (uint32_t i = 0; i < buf_count; ++i) {
 							pipeline_desc.buffers[idx.buffer_idx + i].mutability = mutability;
 						}
-					} else {
+					} else if constexpr (pipe_type == PIPELINE_TYPE::SHADER) {
 						if (entry->type == FUNCTION_TYPE::FRAGMENT) {
 							for (uint32_t i = 0; i < buf_count; ++i) {
 								pipeline_desc.fragmentBuffers[idx.buffer_idx + i].mutability = mutability;
 							}
-						} else {
+						} else if (entry->type == FUNCTION_TYPE::VERTEX) {
 							for (uint32_t i = 0; i < buf_count; ++i) {
 								pipeline_desc.vertexBuffers[idx.buffer_idx + i].mutability = mutability;
+							}
+						}
+					} else if constexpr (pipe_type == PIPELINE_TYPE::SHADER_MESH) {
+						if (entry->type == FUNCTION_TYPE::FRAGMENT) {
+							for (uint32_t i = 0; i < buf_count; ++i) {
+								pipeline_desc.fragmentBuffers[idx.buffer_idx + i].mutability = mutability;
+							}
+						} else if (entry->type == FUNCTION_TYPE::TASK) {
+							for (uint32_t i = 0; i < buf_count; ++i) {
+								pipeline_desc.objectBuffers[idx.buffer_idx + i].mutability = mutability;
+							}
+						} else if (entry->type == FUNCTION_TYPE::MESH) {
+							for (uint32_t i = 0; i < buf_count; ++i) {
+								pipeline_desc.meshBuffers[idx.buffer_idx + i].mutability = mutability;
 							}
 						}
 					}
 				}
 			} else {
 				// soft-printf implicit argument: always a single mutable buffer right now
-				if constexpr (enc_type == ENCODER_TYPE::COMPUTE) {
+				if constexpr (pipe_type == PIPELINE_TYPE::COMPUTE) {
 					pipeline_desc.buffers[idx.buffer_idx].mutability = MTLMutability::MTLMutabilityMutable;
-				} else {
+				} else if constexpr (pipe_type == PIPELINE_TYPE::SHADER) {
 					if (entry->type == FUNCTION_TYPE::FRAGMENT) {
 						pipeline_desc.fragmentBuffers[idx.buffer_idx].mutability = MTLMutability::MTLMutabilityMutable;
-					} else {
+					} else if (entry->type == FUNCTION_TYPE::VERTEX) {
 						pipeline_desc.vertexBuffers[idx.buffer_idx].mutability = MTLMutability::MTLMutabilityMutable;
+					}
+				} else if constexpr (pipe_type == PIPELINE_TYPE::SHADER_MESH) {
+					if (entry->type == FUNCTION_TYPE::FRAGMENT) {
+						pipeline_desc.fragmentBuffers[idx.buffer_idx].mutability = MTLMutability::MTLMutabilityMutable;
+					} else if (entry->type == FUNCTION_TYPE::TASK) {
+						pipeline_desc.objectBuffers[idx.buffer_idx].mutability = MTLMutability::MTLMutabilityMutable;
+					} else if (entry->type == FUNCTION_TYPE::MESH) {
+						pipeline_desc.meshBuffers[idx.buffer_idx].mutability = MTLMutability::MTLMutabilityMutable;
 					}
 				}
 			}

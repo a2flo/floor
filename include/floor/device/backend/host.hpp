@@ -70,7 +70,7 @@ floor_inline_always const_func half pow(half a, half b) { return (half)__builtin
 #if 0 // TODO: directly translate to asm instruction
 floor_inline_always const_func half fmod(half a, half b) { return (half)__builtin_fmodf(float(a), float(b)); }
 #else
-floor_inline_always const_func half fmod(half a, half b) { return a - half(__builtin_truncf(float(a) / float(b)) * float(b)); }
+floor_inline_always const_func half fmod(half a, half b) { return a - half(__builtin_floorf(float(a) / float(b)) * float(b)); }
 #endif
 floor_inline_always const_func half copysign(half a, half b) { return (half)__builtin_copysignf(float(a), float(b)); }
 
@@ -109,7 +109,7 @@ floor_inline_always const_func float pow(float a, float b) { return __builtin_po
 #if 0 // TODO: directly translate to asm instruction
 floor_inline_always const_func float fmod(float a, float b) { return __builtin_fmodf(a, b); }
 #else
-floor_inline_always const_func float fmod(float a, float b) { return a - __builtin_truncf(a / b) * b; }
+floor_inline_always const_func float fmod(float a, float b) { return a - __builtin_floorf(a / b) * b; }
 #endif
 floor_inline_always const_func float copysign(float a, float b) { return __builtin_copysignf(a, b); }
 
@@ -186,8 +186,8 @@ floor_inline_always const_func global uint32_t* floor_get_printf_buffer() {
 #include <floor/device/backend/soft_printf.hpp>
 
 template <size_t format_N, typename... Args>
-static void printf(constant const char (&format)[format_N], const Args&... args) {
-	fl::soft_printf::as::printf_impl(format, args...);
+static void printf(constant const char (&format)[format_N], Args&&... args) {
+	fl::soft_printf::as::printf_impl(format, std::forward<Args>(args)...);
 }
 #endif
 

@@ -220,6 +220,8 @@ std::unique_ptr<argument_buffer> metal_function::create_argument_buffer_internal
 				if (mtl_entry.info->type == toolchain::FUNCTION_TYPE::TESSELLATION_EVALUATION) {
 					buffer_idx += mtl_entry.info->args[i].size;
 				}
+			} else if (has_any_flag<toolchain::ARG_FLAG::NON_USER_ARG>(mtl_entry.info->args[i].flags)) {
+				// skip
 			} else if (mtl_entry.info->args[i].image_type == ARG_IMAGE_TYPE::NONE) {
 				// all args except for images are buffers
 				++buffer_idx;
@@ -250,7 +252,7 @@ std::unique_ptr<argument_buffer> metal_function::create_argument_buffer_internal
 			if (has_flag<toolchain::ARG_FLAG::ARGUMENT_BUFFER>(arg_buffer_arg.flags)) {
 				throw std::runtime_error("unsupported argument type in argument buffer (in " + mtl_entry.info->name + " #" + std::to_string(user_arg_index) + ")");
 			}
-			if (has_flag<toolchain::ARG_FLAG::STAGE_INPUT>(arg_buffer_arg.flags) ||
+			if (has_any_flag<toolchain::ARG_FLAG::NON_USER_ARG>(arg_buffer_arg.flags) ||
 				has_flag<toolchain::ARG_FLAG::PUSH_CONSTANT>(arg_buffer_arg.flags) ||
 				has_flag<toolchain::ARG_FLAG::SSBO>(arg_buffer_arg.flags) ||
 				has_flag<toolchain::ARG_FLAG::IUB>(arg_buffer_arg.flags)) {

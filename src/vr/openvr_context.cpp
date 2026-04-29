@@ -901,7 +901,7 @@ matrix4f openvr_context::get_projection_matrix(const VR_EYE& eye, const float& z
 	// build our own projection matrix
 	// NOTE: raw projection values are already pre-adjusted -> https://github.com/ValveSoftware/openvr/wiki/IVRSystem::GetProjectionRaw
 	const auto fov_lrtb = get_projection_raw(eye);
-	return matrix4f::perspective<true /* pre_adjusted_fov */, true /* is_right_handed */, true /* is_only_positive_z */>
+	return matrix4f::perspective<true /* pre_adjusted_fov */, true /* is_right_handed */>
 	(fov_lrtb.x, fov_lrtb.y, fov_lrtb.z, fov_lrtb.w, z_near, z_far);
 }
 

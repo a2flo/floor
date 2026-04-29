@@ -842,6 +842,10 @@ enable_renderer(enable_renderer_) {
 			"VK_KHR_swapchain_mutable_format",
 			"VK_KHR_unified_image_layouts",
 			"VK_KHR_internally_synchronized_queues",
+			"VK_KHR_device_address_commands",
+			"VK_KHR_device_fault",
+			"VK_KHR_shader_abort",
+			"VK_KHR_shader_constant_data",
 			// these are not needed and interfere with Nsight
 			"VK_KHR_pipeline_binary",
 			"VK_KHR_pipeline_library",
@@ -923,6 +927,14 @@ enable_renderer(enable_renderer_) {
 		} else {
 			device_extensions_set.emplace(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME);
 			memory_priority_support = true;
+		}
+		
+		bool mesh_shading_support = false;
+		if (!device_supported_extensions_set.contains(VK_EXT_MESH_SHADER_EXTENSION_NAME)) {
+			log_warn("VK_EXT_mesh_shader is not supported by $", props.deviceName);
+		} else {
+			device_extensions_set.emplace(VK_EXT_MESH_SHADER_EXTENSION_NAME);
+			mesh_shading_support = true;
 		}
 		
 		if (device_vulkan_version < VULKAN_VERSION::VULKAN_1_4) {
@@ -1056,9 +1068,31 @@ enable_renderer(enable_renderer_) {
 					  (void*)&untyped_pointers_features : (void*)&barycentric_features),
 			.shaderMaximalReconvergence = false,
 		};
+		VkPhysicalDeviceMeshShaderFeaturesEXT mesh_shader_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT,
+			.pNext = &max_reconvergence_features,
+			.taskShader = false,
+			.meshShader = false,
+			.multiviewMeshShader = false,
+			.primitiveFragmentShadingRateMeshShader = false,
+			.meshShaderQueries = false,
+		};
+		VkPhysicalDeviceExtendedDynamicState2FeaturesEXT dyn_state_2_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT,
+			.pNext = (device_supported_extensions_set.contains(VK_EXT_MESH_SHADER_EXTENSION_NAME) ?
+					  (void*)&mesh_shader_features : (void*)&max_reconvergence_features),
+			.extendedDynamicState2 = false,
+			.extendedDynamicState2LogicOp = false,
+			.extendedDynamicState2PatchControlPoints = false,
+		};
+		VkPhysicalDeviceExtendedDynamicStateFeaturesEXT dyn_state_features {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT,
+			.pNext = &dyn_state_2_features,
+			.extendedDynamicState = false,
+		};
 		VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR subgroup_uni_control_flow_features {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_FEATURES_KHR,
-			.pNext = &max_reconvergence_features,
+			.pNext = &dyn_state_features,
 			.shaderSubgroupUniformControlFlow = false,
 		};
 		VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR wg_explicit_layout_features {
@@ -1281,9 +1315,42 @@ enable_renderer(enable_renderer_) {
 			.maxMultiviewViewCount = 0,
 			.maxMultiviewInstanceIndex = 0,
 		};
+		VkPhysicalDeviceMeshShaderPropertiesEXT mesh_shader_props {
+			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_PROPERTIES_EXT,
+			.pNext = &multiview_props,
+			.maxTaskWorkGroupTotalCount = 0u,
+			.maxTaskWorkGroupCount = { 0u, 0u, 0u },
+			.maxTaskWorkGroupInvocations = 0u,
+			.maxTaskWorkGroupSize = { 0u, 0u, 0u },
+			.maxTaskPayloadSize = 0u,
+			.maxTaskSharedMemorySize = 0u,
+			.maxTaskPayloadAndSharedMemorySize = 0u,
+			.maxMeshWorkGroupTotalCount = 0u,
+			.maxMeshWorkGroupCount = { 0u, 0u, 0u },
+			.maxMeshWorkGroupInvocations = 0u,
+			.maxMeshWorkGroupSize = { 0u, 0u, 0u },
+			.maxMeshSharedMemorySize = 0u,
+			.maxMeshPayloadAndSharedMemorySize = 0u,
+			.maxMeshOutputMemorySize = 0u,
+			.maxMeshPayloadAndOutputMemorySize = 0u,
+			.maxMeshOutputComponents = 0u,
+			.maxMeshOutputVertices = 0u,
+			.maxMeshOutputPrimitives = 0u,
+			.maxMeshOutputLayers = 0u,
+			.maxMeshMultiviewViewCount = 0u,
+			.meshOutputPerVertexGranularity = 0u,
+			.meshOutputPerPrimitiveGranularity = 0u,
+			.maxPreferredTaskWorkGroupInvocations = 0u,
+			.maxPreferredMeshWorkGroupInvocations = 0u,
+			.prefersLocalInvocationVertexOutput = false,
+			.prefersLocalInvocationPrimitiveOutput = false,
+			.prefersCompactVertexOutput = false,
+			.prefersCompactPrimitiveOutput = false,
+		};
 		VkPhysicalDeviceVulkan11Properties vulkan11_props {
 			.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES,
-			.pNext = &multiview_props,
+			.pNext = (device_supported_extensions_set.contains(VK_EXT_MESH_SHADER_EXTENSION_NAME) ?
+					  (void*)&mesh_shader_props : (void*)&multiview_props),
 			.deviceUUID = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 			.driverUUID = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 			.deviceLUID = { 0, 0, 0, 0, 0, 0, 0, 0 },
@@ -1551,9 +1618,59 @@ enable_renderer(enable_renderer_) {
 			continue;
 		}
 		
+		if (!dyn_state_features.extendedDynamicState) {
+			log_error("extendedDynamicState is not supported by $", props.deviceName);
+			continue;
+		}
+		
+		if (!dyn_state_2_features.extendedDynamicState2) {
+			log_error("extendedDynamicState2 is not supported by $", props.deviceName);
+			continue;
+		}
+		
+		bool mesh_shading_multi_view_support = false;
+		if (mesh_shading_support) {
+			if (!mesh_shader_features.meshShader || !mesh_shader_features.taskShader) {
+				log_warn("mesh shading is not fully supported by $", props.deviceName);
+				mesh_shading_support = false;
+			}
+			// check for minimum required limits
+			if (mesh_shader_props.maxTaskPayloadSize < 16384u ||
+				mesh_shader_props.maxTaskSharedMemorySize < 16384u ||
+				mesh_shader_props.maxMeshSharedMemorySize < 16384u ||
+				mesh_shader_props.maxMeshOutputPrimitives < 256u ||
+				mesh_shader_props.maxMeshOutputVertices < 256u ||
+				mesh_shader_props.maxTaskWorkGroupSize[0] < 128u ||
+				mesh_shader_props.maxTaskWorkGroupSize[1] < 128u ||
+				mesh_shader_props.maxTaskWorkGroupSize[2] < 128u ||
+				mesh_shader_props.maxTaskWorkGroupCount[0] < 65535u ||
+				mesh_shader_props.maxTaskWorkGroupCount[1] < 65535u ||
+				mesh_shader_props.maxTaskWorkGroupCount[2] < 65535u ||
+				mesh_shader_props.maxMeshWorkGroupSize[0] < 128u ||
+				mesh_shader_props.maxMeshWorkGroupSize[1] < 128u ||
+				mesh_shader_props.maxMeshWorkGroupSize[2] < 128u ||
+				mesh_shader_props.maxMeshWorkGroupCount[0] < 65535u ||
+				mesh_shader_props.maxMeshWorkGroupCount[1] < 65535u ||
+				mesh_shader_props.maxMeshWorkGroupCount[2] < 65535u) {
+				log_warn("mesh shading minimum required limits are not fulfilled by $", props.deviceName);
+				mesh_shading_support = false;
+			}
+			if (mesh_shading_support &&
+				mesh_shader_features.multiviewMeshShader &&
+				mesh_shader_props.maxMeshMultiviewViewCount >= 4u &&
+				mesh_shader_props.maxMeshOutputLayers >= 4u) {
+				mesh_shading_multi_view_support = true;
+			}
+		}
+		// must explicitly set this to false when we're not using variable shading rate
+		mesh_shader_features.primitiveFragmentShadingRateMeshShader = false;
+		
+		// NOTE: if mesh shading is supported, sub-group operations *must* be supported as well
+		const VkShaderStageFlags sg_required_mesh_stages = (VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT);
 		// TODO: optional VK_SHADER_STAGE_VERTEX_BIT?
-		const auto sg_required_stages = (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT);
-		const auto sq_required_ops = (VK_SUBGROUP_FEATURE_BASIC_BIT | VK_SUBGROUP_FEATURE_ARITHMETIC_BIT |
+		const VkShaderStageFlags sg_required_stages = (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT |
+													   (mesh_shading_support ? sg_required_mesh_stages : VkShaderStageFlags(0)));
+		const auto sg_required_ops = (VK_SUBGROUP_FEATURE_BASIC_BIT | VK_SUBGROUP_FEATURE_ARITHMETIC_BIT |
 									  VK_SUBGROUP_FEATURE_SHUFFLE_BIT | VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT |
 									  VK_SUBGROUP_FEATURE_BALLOT_BIT);
 		if (!vulkan12_features.shaderSubgroupExtendedTypes ||
@@ -1561,7 +1678,7 @@ enable_renderer(enable_renderer_) {
 			!vulkan13_features.computeFullSubgroups ||
 			vulkan11_props.subgroupSize < 2 ||
 			(vulkan11_props.subgroupSupportedStages & sg_required_stages) != sg_required_stages ||
-			(vulkan11_props.subgroupSupportedOperations & sq_required_ops) != sq_required_ops) {
+			(vulkan11_props.subgroupSupportedOperations & sg_required_ops) != sg_required_ops) {
 			log_error("sub-group requirements are not fulfilled by $", props.deviceName);
 			continue;
 		}
@@ -2148,7 +2265,9 @@ enable_renderer(enable_renderer_) {
 		
 		if (device_supported_extensions_set.contains(VK_NV_INHERITED_VIEWPORT_SCISSOR_EXTENSION_NAME) &&
 			inherited_viewport_scissor.inheritedViewportScissor2D) {
+#if 0 // NOTE/TODO: disabled for now, as this interferes with pipeline switching
 			device.inherited_viewport_scissor_support = true;
+#endif
 		}
 		
 		if (nested_cmd_buffers_support) {
@@ -2162,6 +2281,9 @@ enable_renderer(enable_renderer_) {
 		if (untyped_pointers_support) {
 			log_msg("SPIR-V untyped pointers are supported");
 		}
+		
+		device.mesh_shading_support = mesh_shading_support;
+		device.mesh_shading_multi_view_support = mesh_shading_multi_view_support;
 		
 		// check host image copy support (via extension or core)
 		if ((device_vulkan_version >= VULKAN_VERSION::VULKAN_1_4 ?
@@ -2245,6 +2367,8 @@ enable_renderer(enable_renderer_) {
 		log_msg("max group size: $'", device.max_group_size);
 		log_msg("SIMD width: $ ($ - $)", device.simd_width, device.simd_range.x, device.simd_range.y);
 		log_msg("queue families: $", queue_family_count);
+		log_msg("mesh-shading: $ (multi-view: $)", device.mesh_shading_support ? "yes" : "no",
+				device.mesh_shading_multi_view_support ? "yes" : "no");
 		
 		// TODO: fastest device selection, tricky to do without a unit count
 		

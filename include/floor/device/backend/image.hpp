@@ -263,7 +263,16 @@ namespace floor_image {
 	public: // image storage
 		// helpers
 		static constexpr bool is_readable() { return has_flag<IMAGE_TYPE::READ>(image_type); }
-		static constexpr bool is_writable() { return has_flag<IMAGE_TYPE::WRITE>(image_type); }
+		static constexpr bool is_writable() {
+			if (!has_flag<IMAGE_TYPE::WRITE>(image_type) ||
+				(has_flag<IMAGE_TYPE::FLAG_DEPTH>(image_type) && !device_info::has_image_depth_write_support()) ||
+				(has_flag<IMAGE_TYPE::FLAG_CUBE>(image_type) && !device_info::has_image_cube_write_support()) ||
+				(has_flag<IMAGE_TYPE::FLAG_CUBE>(image_type) && has_flag<IMAGE_TYPE::FLAG_ARRAY>(image_type) &&
+				 !device_info::has_image_cube_array_write_support())) {
+				return false;
+			}
+			return true;
+		}
 		static constexpr bool is_read_only() { return is_readable() && !is_writable(); }
 		static constexpr bool is_write_only() { return !is_readable() && is_writable(); }
 		static constexpr bool is_read_write() { return is_readable() && is_writable(); }

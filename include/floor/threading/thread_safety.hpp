@@ -462,7 +462,7 @@ public:
 //! creates a tuple of references to the specified arguments
 template <typename... Args>
 static constexpr inline auto make_refs_tuple(Args&&... args) {
-	return std::tuple<std::decay_t<Args>&...> { args... };
+	return std::tuple<std::decay_t<Args>&...> { std::forward<Args>(args)... };
 }
 
 } // namespace floor_multi_guard

@@ -138,7 +138,7 @@ bool metal_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 							green:pipeline_desc.blend.constant_color.y
 							 blue:pipeline_desc.blend.constant_color.z
 							alpha:pipeline_desc.blend.constant_alpha];
-		if (pipeline_desc.render_wireframe) {
+		if (pipeline_desc.options.render_wireframe) {
 			[encoder setTriangleFillMode:MTLTriangleFillModeLines];
 		}
 		
@@ -357,7 +357,9 @@ void metal_renderer::execute_indirect(const indirect_command_pipeline& indirect_
 	}
 	
 #if defined(FLOOR_DEBUG)
-	if (indirect_cmd.get_description().command_type != indirect_command_description::COMMAND_TYPE::RENDER) {
+	if (const auto cmd_type = indirect_cmd.get_description().command_type;
+		cmd_type != indirect_command_description::COMMAND_TYPE::RENDER &&
+		cmd_type != indirect_command_description::COMMAND_TYPE::RENDER_MESH) {
 		log_error("specified indirect command pipeline \"$\" must be a render pipeline",
 				  indirect_cmd.get_description().debug_label);
 		return;
@@ -380,7 +382,7 @@ void metal_renderer::execute_indirect(const indirect_command_pipeline& indirect_
 		
 		// declare all used resources
 		const auto& resources = mtl_indirect_pipeline_entry->get_resources();
-		constexpr const auto stages = MTLRenderStageVertex | MTLRenderStageFragment;
+		constexpr const auto stages = MTLRenderStageVertex | MTLRenderStageObject | MTLRenderStageMesh | MTLRenderStageFragment;
 		if (!resources.read_only.empty()) {
 			[encoder useResources:resources.read_only.data()
 							count:resources.read_only.size()
@@ -434,6 +436,9 @@ bool metal_renderer::update_metal_pipeline() {
 		log_error("no pipeline state for device $", dev.name);
 		return false;
 	}
+	if (encoder) {
+		[encoder setRenderPipelineState:mtl_pipeline_state->pipeline_state];
+	}
 	return true;
 }
 
@@ -464,6 +469,19 @@ bool metal_renderer::set_tessellation_factors(const device_buffer& tess_factors_
 									  offset:0u
 							  instanceStride:0u];
 		return true;
+	}
+}
+
+void metal_renderer::draw_mesh_internal(const mesh_draw_entry& draw_entry,
+										const std::vector<device_function_arg>& args) {
+	@autoreleasepool {
+		const auto ms = (const metal_shader*)cur_pipeline->get_description(multi_view).mesh_shader;
+		assert(ms);
+		ms->set_shader_arguments(cqueue, encoder, cmd_buffer,
+								 (const metal_function::metal_function_entry*)mtl_pipeline_state->ts_entry,
+								 (const metal_function::metal_function_entry*)mtl_pipeline_state->ms_entry,
+								 (const metal_function::metal_function_entry*)mtl_pipeline_state->fs_entry, args);
+		ms->draw(encoder, draw_entry);
 	}
 }
 
@@ -504,8 +522,17 @@ void metal_renderer::draw_patches_internal(const patch_draw_entry* draw_entry,
 static inline MTLRenderStages sync_stage_to_metal_render_stages(const SYNC_STAGE stage) {
 	assert(stage != SYNC_STAGE::NONE);
 	MTLRenderStages mtl_stages { 0u };
-	if (has_flag<SYNC_STAGE::VERTEX>(stage) || has_flag<SYNC_STAGE::TESSELLATION>(stage) || has_flag<SYNC_STAGE::BOTTOM_OF_PIPE>(stage)) {
+	if (has_flag<SYNC_STAGE::VERTEX>(stage) || has_flag<SYNC_STAGE::TESSELLATION>(stage)) {
 		mtl_stages |= MTLRenderStageVertex;
+	}
+	if (has_flag<SYNC_STAGE::TASK>(stage)) {
+		mtl_stages |= MTLRenderStageObject;
+	}
+	if (has_flag<SYNC_STAGE::MESH>(stage)) {
+		mtl_stages |= MTLRenderStageMesh;
+	}
+	if (has_flag<SYNC_STAGE::BOTTOM_OF_PIPE>(stage)) {
+		mtl_stages |= MTLStageVertex | MTLStageObject | MTLStageMesh;
 	}
 	if (has_flag<SYNC_STAGE::FRAGMENT>(stage) || has_flag<SYNC_STAGE::COLOR_ATTACHMENT_OUTPUT>(stage) || has_flag<SYNC_STAGE::TOP_OF_PIPE>(stage)) {
 		mtl_stages |= MTLRenderStageFragment;
@@ -523,6 +550,10 @@ void metal_renderer::signal_fence(device_fence& fence, const SYNC_STAGE after_st
 	@autoreleasepool {
 		[encoder updateFence:((const metal_fence&)fence).get_metal_fence() afterStages:sync_stage_to_metal_render_stages(after_stage)];
 	}
+}
+
+void metal_renderer::switch_cull_mode(const CULL_MODE new_cull_mode) {
+	[encoder setCullMode:metal_pipeline::metal_cull_mode_from_cull_mode(new_cull_mode)];
 }
 
 } // namespace fl

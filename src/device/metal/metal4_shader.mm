@@ -55,6 +55,7 @@ bool metal4_shader::set_shader_arguments(const device_queue& cqueue,
 										 const metal4_function_entry* fragment_shader,
 										 const std::vector<device_function_arg>& args,
 										 const std::span<const graphics_renderer::multi_draw_indexed_entry> draw_indexed_entries) const {
+	assert(vertex_shader); // only the vertex shader is required here
 	@autoreleasepool {
 		const auto dev = &cqueue.get_device();
 		const auto ctx = (const metal_context*)dev->context;
@@ -178,6 +179,165 @@ bool metal4_shader::set_shader_arguments(const device_queue& cqueue,
 	return true;
 }
 
+bool metal4_shader::set_shader_arguments(const device_queue& cqueue,
+										 id <MTL4RenderCommandEncoder> encoder,
+										 metal4_command_buffer& cmd_buffer,
+										 const metal4_function_entry* task_shader,
+										 const metal4_function_entry* mesh_shader,
+										 const metal4_function_entry* fragment_shader,
+										 const std::vector<device_function_arg>& args) const {
+	assert(mesh_shader); // only the mesh shader is required here
+	@autoreleasepool {
+		const auto dev = &cqueue.get_device();
+		const auto ctx = (const metal_context*)dev->context;
+		const auto& mtl_queue = (const metal4_queue&)cqueue;
+		
+		// create implicit args
+		std::vector<device_function_arg> implicit_args;
+		
+		// create + init printf buffers if soft-printf is used
+		std::vector<std::pair<device_buffer*, uint32_t>> printf_buffer_rsrcs;
+		const auto is_ms_soft_printf = has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(mesh_shader->info->flags);
+		const auto is_ts_soft_printf = (task_shader != nullptr &&
+										has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(task_shader->info->flags));
+		const auto is_fs_soft_printf = (fragment_shader != nullptr &&
+										has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(fragment_shader->info->flags));
+		if (is_ts_soft_printf || is_ms_soft_printf || is_fs_soft_printf) {
+			const uint32_t printf_buffer_count = (is_ts_soft_printf ? 1u : 0u) + (is_ms_soft_printf ? 1u : 0u) + (is_fs_soft_printf ? 1u : 0u);
+			for (uint32_t i = 0; i < printf_buffer_count; ++i) {
+				auto rsrc = ctx->acquire_soft_printf_buffer(*dev);
+				initialize_printf_buffer(cqueue, *rsrc.first);
+				implicit_args.emplace_back(rsrc.first);
+				printf_buffer_rsrcs.emplace_back(std::move(rsrc));
+			}
+		}
+		
+		// set and handle function arguments
+		metal4_args::argument_table_encoders_t<3u> shader_encoders;
+		
+		auto ms_acq_args_res = mesh_shader->acquire_exec_instance(cqueue);
+		auto& ms_args_res = *ms_acq_args_res.res;
+		shader_encoders.encoders[1] = {
+			.arg_table = ms_args_res.arg_table,
+			.constants_buffer = ms_args_res.constants_buffer.get(),
+			.constant_buffer_info = &mesh_shader->constant_buffer_info,
+		};
+		ms_args_res.resources.clear_resources();
+		
+		decltype(ms_acq_args_res) ts_acq_args_res {};
+		id <MTL4ArgumentTable> ts_arg_table = nil;
+		metal4_resource_tracking<true>* ts_resources = nullptr;
+		if (task_shader) {
+			ts_acq_args_res = task_shader->acquire_exec_instance(cqueue);
+			auto& ts_args_res = *ts_acq_args_res.res;
+			ts_arg_table = ts_args_res.arg_table;
+			shader_encoders.encoders[0] = {
+				.arg_table = ts_args_res.arg_table,
+				.constants_buffer = ts_args_res.constants_buffer.get(),
+				.constant_buffer_info = &task_shader->constant_buffer_info,
+			};
+			ts_resources = &ts_args_res.resources;
+			ts_args_res.resources.clear_resources();
+		}
+		
+		decltype(ms_acq_args_res) fs_acq_args_res {};
+		id <MTL4ArgumentTable> fs_arg_table = nil;
+		metal4_resource_tracking<true>* fs_resources = nullptr;
+		if (fragment_shader) {
+			fs_acq_args_res = fragment_shader->acquire_exec_instance(cqueue);
+			auto& fs_args_res = *fs_acq_args_res.res;
+			fs_arg_table = fs_args_res.arg_table;
+			shader_encoders.encoders[2] = {
+				.arg_table = fs_args_res.arg_table,
+				.constants_buffer = fs_args_res.constants_buffer.get(),
+				.constant_buffer_info = &fragment_shader->constant_buffer_info,
+			};
+			fs_resources = &fs_args_res.resources;
+			fs_args_res.resources.clear_resources();
+		}
+		
+		if (!metal4_args::set_and_handle_arguments<metal4_args::ENCODER_TYPE::ARGUMENT_TABLE, true, 3u>(cqueue.get_device(), shader_encoders, {
+			(task_shader ? task_shader->info : nullptr), mesh_shader->info, (fragment_shader ? fragment_shader->info : nullptr)
+		}, args, implicit_args, {
+			(ts_resources ? &ts_resources->get_resources() : nullptr), &ms_args_res.resources.get_resources(), (fs_resources ? &fs_resources->get_resources() : nullptr)
+		})) {
+			log_error("failed to encode shader arguments in \"$\" + \"$\" + \"$\"",
+					  (task_shader ? task_shader->info->name : "<no-task-shader>"),
+					  mesh_shader->info->name,
+					  (fragment_shader ? fragment_shader->info->name : "<no-fragment-shader>"));
+			
+			mesh_shader->release_exec_instance(ms_acq_args_res.index());
+			if (task_shader) {
+				task_shader->release_exec_instance(ts_acq_args_res.index());
+			}
+			if (fragment_shader) {
+				fragment_shader->release_exec_instance(fs_acq_args_res.index());
+			}
+			for (const auto& printf_buffer_rsrc : printf_buffer_rsrcs) {
+				if (printf_buffer_rsrc.first) {
+					ctx->release_soft_printf_buffer(*dev, printf_buffer_rsrc);
+				}
+			}
+			return false;
+		}
+		
+		auto has_ms_resources = ms_args_res.resources.has_resources();
+		if (has_ms_resources) {
+			ms_args_res.resources.update_and_commit();
+			[cmd_buffer.cmd_buffer useResidencySet:ms_args_res.resources.residency_set];
+		}
+		
+		const auto has_ts_resources = (ts_resources ? ts_resources->has_resources() : false);
+		if (has_ts_resources) {
+			ts_resources->update_and_commit();
+			[cmd_buffer.cmd_buffer useResidencySet:ts_resources->residency_set];
+		}
+		
+		const auto has_fs_resources = (fs_resources ? fs_resources->has_resources() : false);
+		if (has_fs_resources) {
+			fs_resources->update_and_commit();
+			[cmd_buffer.cmd_buffer useResidencySet:fs_resources->residency_set];
+		}
+		
+		if (task_shader) {
+			[encoder setArgumentTable:ts_arg_table atStages:MTLRenderStageObject];
+		}
+		[encoder setArgumentTable:ms_args_res.arg_table atStages:MTLRenderStageMesh];
+		if (fragment_shader) {
+			[encoder setArgumentTable:fs_arg_table atStages:MTLRenderStageFragment];
+		}
+		
+		// add completion handler to evaluate printf buffers on completion
+		if (is_ts_soft_printf || is_ms_soft_printf || is_fs_soft_printf) {
+			mtl_queue.add_completion_handler(cmd_buffer, [printf_buffer_rsrcs, ctx, dev] {
+				auto internal_dev_queue = ctx->get_device_default_queue(*dev);
+				for (const auto& printf_buffer_rsrc : printf_buffer_rsrcs) {
+					auto cpu_printf_buffer = std::make_unique<uint32_t[]>(printf_buffer_size / 4);
+					printf_buffer_rsrc.first->read(*internal_dev_queue, cpu_printf_buffer.get());
+					handle_printf_buffer(std::span { cpu_printf_buffer.get(), printf_buffer_size / 4 });
+					ctx->release_soft_printf_buffer(*dev, printf_buffer_rsrc);
+				}
+			});
+		}
+		
+		mtl_queue.add_completion_handler(cmd_buffer, [mesh_shader_ptr = mesh_shader,
+													  ms_res_slot_idx = ms_acq_args_res.index(),
+													  task_shader_ptr = task_shader,
+													  ts_res_slot_idx = (task_shader ? ts_acq_args_res.index() : decltype(ts_acq_args_res)::invalid_slot_idx),
+													  fragment_shader_ptr = fragment_shader,
+													  fs_res_slot_idx = (fragment_shader ? fs_acq_args_res.index() : decltype(fs_acq_args_res)::invalid_slot_idx)] {
+			mesh_shader_ptr->release_exec_instance(ms_res_slot_idx);
+			if (task_shader_ptr) {
+				task_shader_ptr->release_exec_instance(ts_res_slot_idx);
+			}
+			if (fragment_shader_ptr) {
+				fragment_shader_ptr->release_exec_instance(fs_res_slot_idx);
+			}
+		});
+	}
+	return true;
+}
+
 void metal4_shader::draw(id <MTL4RenderCommandEncoder> encoder, const PRIMITIVE& primitive,
 						 const std::span<const graphics_renderer::multi_draw_entry> draw_entries) const {
 	const auto mtl_primitve = metal4_pipeline::metal_primitive_type_from_primitive(primitive);
@@ -207,6 +367,15 @@ void metal4_shader::draw(id <MTL4RenderCommandEncoder> encoder, const PRIMITIVE&
 								baseVertex:entry.vertex_offset
 							  baseInstance:entry.first_instance];
 		}
+	}
+}
+
+void metal4_shader::draw(id <MTL4RenderCommandEncoder> encoder,
+						 const graphics_renderer::mesh_draw_entry& draw_entry) const {
+	@autoreleasepool {
+		[encoder drawMeshThreadgroups:MTLSize { draw_entry.work_group_count.x, draw_entry.work_group_count.y, draw_entry.work_group_count.z }
+		  threadsPerObjectThreadgroup:MTLSize { draw_entry.local_work_size_task.x, draw_entry.local_work_size_task.y, draw_entry.local_work_size_task.z }
+			threadsPerMeshThreadgroup:MTLSize { draw_entry.local_work_size_mesh.x, draw_entry.local_work_size_mesh.y, draw_entry.local_work_size_mesh.z }];
 	}
 }
 

@@ -122,7 +122,7 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 							}
 							
 							// set buffer mutability
-							metal_args::set_buffer_mutability<metal_args::ENCODER_TYPE::COMPUTE>(mtl_pipeline_desc, { &info });
+							metal_args::set_buffer_mutability<metal_args::PIPELINE_TYPE::COMPUTE>(mtl_pipeline_desc, { &info });
 							
 							// since compute pipeline creation is not exposed, shader validation enablement is handled via config
 							if (!validation_enable_set.empty() && validation_enable_set.contains(function_name)) {

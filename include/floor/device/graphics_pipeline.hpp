@@ -111,10 +111,15 @@ struct render_pipeline_description {
 	//! NOTE: when tessellation is active, only the TES will be run and act as the vertex shader
 	//! NOTE: for Vulkan, a synthetic/builtin pass-through "pre-tessellation vertex shader" will be used internally
 	const device_function* vertex_shader { nullptr };
+	//! standard task shader
+	const device_function* task_shader { nullptr };
+	//! standard mesh shader
+	const device_function* mesh_shader { nullptr };
 	//! standard fragment shader
 	const device_function* fragment_shader { nullptr };
 	
 	//! to be rendered primitive type
+	//! NOTE: this is ignored when using mesh shading
 	PRIMITIVE primitive { PRIMITIVE::TRIANGLE };
 	
 	//! geometry culling mode
@@ -241,15 +246,25 @@ struct render_pipeline_description {
 		INDEX_TYPE index_type { INDEX_TYPE::UINT };
 	} tessellation;
 	
-	//! if enabled, performs automatic modification of this render pipeline description to enable multi-view rendering
-	//! if not enabled, this render pipeline description must already be multi-view capable when used for multi-view rendering
-	bool automatic_multi_view_handling { true };
-	
-	//! if enabled, allows the use of the graphics_pipeline in indirect rendering (indirect_command_pipeline, ...)
-	bool support_indirect_rendering { false };
-	
-	//! if enabled, renders all geometry in wireframe mode (lines fill mode)
-	bool render_wireframe { false };
+	//! misc pipeline options
+	struct options_t {
+		//! if enabled, performs automatic modification of this render pipeline description to enable multi-view rendering
+		//! if not enabled, this render pipeline description must already be multi-view capable when used for multi-view rendering
+		uint32_t automatic_multi_view_handling : 1 { true };
+		
+		//! if enabled, allows the use of the graphics_pipeline in indirect rendering (indirect_command_pipeline, ...)
+		uint32_t support_indirect_rendering : 1 { false };
+		
+		//! if enabled, renders all geometry in wireframe mode (lines fill mode)
+		uint32_t render_wireframe : 1 { false };
+		
+		//! for use with multiple pipelines within a single graphics_renderer:
+		//! if enabled, allows the "cull_mode" to be changed when switching to another pipeline
+		//! NOTE: must be set on all pipelines used within the same graphics_renderer
+		uint32_t dynamic_cull_state : 1 { false };
+		
+		uint32_t unused : 28 { 0u };
+	} options;
 	
 	//! sets the debug label for pipelines created from this description (e.g. for display in a debugger)
 	std::string debug_label;

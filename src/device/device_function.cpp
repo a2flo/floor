@@ -76,7 +76,7 @@ std::unique_ptr<argument_buffer> device_function::create_argument_buffer(const d
 		return {};
 	}
 	
-	// need to take care of argument index translation when stage_input arguments exist
+	// need to take care of argument index translation when non-user arguments exist
 	uint32_t idx = 0;
 	for (uint32_t actual_idx = 0, count = uint32_t(entry->info->args.size()); idx <= count; ++actual_idx) {
 		if (idx >= count) {
@@ -93,10 +93,10 @@ std::unique_ptr<argument_buffer> device_function::create_argument_buffer(const d
 			break;
 		}
 		
-		if (has_flag<toolchain::ARG_FLAG::STAGE_INPUT>(arg_info.flags)) {
+		if (has_any_flag<toolchain::ARG_FLAG::NON_USER_ARG>(arg_info.flags)) {
 			// skip to next actual arg
 			while (idx < entry->info->args.size() &&
-				   has_flag<toolchain::ARG_FLAG::STAGE_INPUT>(entry->info->args[idx].flags)) {
+				   has_any_flag<toolchain::ARG_FLAG::NON_USER_ARG>(entry->info->args[idx].flags)) {
 				++idx;
 			}
 		} else {

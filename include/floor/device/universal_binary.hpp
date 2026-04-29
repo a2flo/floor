@@ -217,7 +217,10 @@ using namespace std::literals;
 			//! NOTE: always supported on iOS (with Metal3), varies on macOS Metal3/Mac2
 			uint64_t barycentric_coord_support : 1;
 			
-			uint64_t _unused : 28;
+			//! if set, enables mesh shading support
+			uint64_t mesh_shading_support : 1;
+			
+			uint64_t _unused : 27;
 		} metal;
 		
 		struct __attribute__((packed)) {
@@ -274,6 +277,7 @@ using namespace std::literals;
 			uint64_t barycentric_coord_support : 1;
 			
 			//! if set, enables tessellation support
+			//! NOTE/TODO: obsolete, will be removed in the future
 			uint64_t tessellation_support : 1;
 			
 			//! required device SIMD width
@@ -295,7 +299,10 @@ using namespace std::literals;
 			//! if set, enables untyped pointers support
 			uint64_t untyped_pointers_support : 1;
 			
-			uint64_t _unused : 7;
+			//! if set, enables mesh shading support
+			uint64_t mesh_shading_support : 1;
+			
+			uint64_t _unused : 6;
 		} vulkan;
 
 		//! packed value
@@ -356,6 +363,8 @@ using namespace std::literals;
 		uint32_t simd_width { 0u };
 		//! argument buffer: index of the argument buffer in the function
 		uint32_t argument_buffer_index { 0u };
+		
+		// TODO: future update: add field for #"max mesh groups"
 	};
 	static_assert(sizeof(function_info_v7) == sizeof(uint32_t) * 9u);
 	

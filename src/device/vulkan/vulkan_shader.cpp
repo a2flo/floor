@@ -65,7 +65,7 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 													   const std::span<const graphics_renderer::multi_draw_entry> draw_entries,
 													   const std::span<const graphics_renderer::multi_draw_indexed_entry> draw_indexed_entries,
 													   const std::vector<device_function_arg>& args) const {
-	if (vertex_shader == nullptr) {
+	if (!vertex_shader) {
 		log_error("must specify a vertex shader!");
 		return {};
 	}
@@ -330,6 +330,24 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 #endif
 	
 	return transition_info.barriers;
+}
+
+std::vector<VkImageMemoryBarrier2> vulkan_shader::draw([[maybe_unused]] const device_queue& cqueue,
+													   [[maybe_unused]] const vulkan_command_buffer& cmd_buffer,
+													   [[maybe_unused]] const VkPipeline pipeline,
+													   [[maybe_unused]] const VkPipelineLayout pipeline_layout,
+													   [[maybe_unused]] const vulkan_function_entry* task_shader,
+													   [[maybe_unused]] const vulkan_function_entry* mesh_shader,
+													   [[maybe_unused]] const vulkan_function_entry* fragment_shader,
+													   [[maybe_unused]] const graphics_renderer::mesh_draw_entry& draw_entry,
+													   [[maybe_unused]] const std::vector<device_function_arg>& args) const {
+	// TODO: mesh shading implementation
+	if (!mesh_shader) {
+		log_error("must specify a mesh shader!");
+		return {};
+	}
+	
+	return {};
 }
 
 } // namespace fl

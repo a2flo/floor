@@ -90,14 +90,11 @@ bool create_floor_function_info(const std::string& ffi_file_name,
 		else if (token_type == "3") func_type = FUNCTION_TYPE::FRAGMENT;
 		else if (token_type == "4") func_type = FUNCTION_TYPE::TESSELLATION_CONTROL;
 		else if (token_type == "5") func_type = FUNCTION_TYPE::TESSELLATION_EVALUATION;
+		else if (token_type == "6") func_type = FUNCTION_TYPE::TASK;
+		else if (token_type == "7") func_type = FUNCTION_TYPE::MESH;
 		else if (token_type == "100") func_type = FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT;
 		
-		if (func_type != FUNCTION_TYPE::KERNEL &&
-			func_type != FUNCTION_TYPE::VERTEX &&
-			func_type != FUNCTION_TYPE::FRAGMENT &&
-			func_type != FUNCTION_TYPE::TESSELLATION_CONTROL &&
-			func_type != FUNCTION_TYPE::TESSELLATION_EVALUATION &&
-			func_type != FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT) {
+		if (func_type == FUNCTION_TYPE::NONE) {
 			log_error("unsupported function type: $", token_type);
 			return false;
 		}
@@ -149,6 +146,13 @@ bool create_floor_function_info(const std::string& ffi_file_name,
 				.image_type = (ARG_IMAGE_TYPE)arg_tokens[4],
 				.flags = (ARG_FLAG)arg_tokens[5],
 			});
+			
+			if (func_type == FUNCTION_TYPE::TASK) {
+				const auto& arg = info.args.back();
+				if (has_flag<ARG_FLAG::MESH_GRID_PROPERTIES>(arg.flags)) {
+					info.mesh_max_work_groups = (uint32_t)arg.size;
+				}
+			}
 		}
 		
 		if (info.type == FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT) {
@@ -1055,6 +1059,11 @@ program_data compile_input(const std::string& input,
 	clang_cmd += " -DFLOOR_DEVICE_INFO_TESSELLATION_SUPPORT_"s + has_tessellation_str;
 	clang_cmd += " -DFLOOR_DEVICE_INFO_MAX_TESSELLATION_FACTOR="s + std::to_string(dev.max_tessellation_factor) + "u";
 	
+	// mesh shading support
+	const auto has_mesh_shading_str = std::to_string(dev.mesh_shading_support);
+	clang_cmd += " -DFLOOR_DEVICE_INFO_MESH_SHADING_SUPPORT="s + has_mesh_shading_str;
+	clang_cmd += " -DFLOOR_DEVICE_INFO_MESH_SHADING_SUPPORT_"s + has_mesh_shading_str;
+	
 	// argument buffer support
 	const auto has_arg_buffer_str = std::to_string(dev.argument_buffer_support);
 	const auto has_arg_buffer_image_str = std::to_string(dev.argument_buffer_image_support);
@@ -1124,6 +1133,9 @@ program_data compile_input(const std::string& input,
 	}
 	if (options.debug.error_on_ptr_type_alloca) {
 		clang_cmd += " -Xclang -floor-error-on-ptr-type-alloca";
+	}
+	if (options.debug.error_on_ptr_int_casts) {
+		clang_cmd += " -Xclang -floor-error-on-ptr-int-casts";
 	}
 	
 	// default disabled warning flags

@@ -76,6 +76,21 @@ using ptrdiff_t = __PTRDIFF_TYPE__;
 #define fragment extern "C" __attribute__((fragment_shader))
 #define tessellation_control extern "C" __attribute__((tessellation_control_shader, kernel_dim(1)))
 #define tessellation_evaluation extern "C" __attribute__((tessellation_evaluation_shader))
+#if FLOOR_DEVICE_INFO_MESH_SHADING_SUPPORT
+#define task_shader_1d(... /* x */) extern "C" __attribute__((task_shader, kernel_dim(1), kernel_work_group_size(__VA_ARGS__)))
+#define task_shader_2d(... /* x, y */) extern "C" __attribute__((task_shader, kernel_dim(2), kernel_work_group_size(__VA_ARGS__)))
+#define task_shader_3d(... /* x, y, z */) extern "C" __attribute__((task_shader, kernel_dim(3), kernel_work_group_size(__VA_ARGS__)))
+#define task_shader_1d_simd(req_simd_width, ... /* x */) extern "C" __attribute__((task_shader, kernel_dim(1), kernel_simd_width(req_simd_width), kernel_work_group_size(__VA_ARGS__)))
+#define task_shader_2d_simd(req_simd_width, ... /* x, y */) extern "C" __attribute__((task_shader, kernel_dim(2), kernel_simd_width(req_simd_width), kernel_work_group_size(__VA_ARGS__)))
+#define task_shader_3d_simd(req_simd_width, ... /* x, y, z */) extern "C" __attribute__((task_shader, kernel_dim(3), kernel_simd_width(req_simd_width), kernel_work_group_size(__VA_ARGS__)))
+#define mesh_shader_1d(... /* x */) extern "C" __attribute__((mesh_shader, kernel_dim(1), kernel_work_group_size(__VA_ARGS__)))
+#define mesh_shader_2d(... /* x, y */) extern "C" __attribute__((mesh_shader, kernel_dim(2), kernel_work_group_size(__VA_ARGS__)))
+#define mesh_shader_3d(... /* x, y, z */) extern "C" __attribute__((mesh_shader, kernel_dim(3), kernel_work_group_size(__VA_ARGS__)))
+#define mesh_shader_1d_simd(req_simd_width, ... /* x */) extern "C" __attribute__((mesh_shader, kernel_dim(1), kernel_simd_width(req_simd_width), kernel_work_group_size(__VA_ARGS__)))
+#define mesh_shader_2d_simd(req_simd_width, ... /* x, y */) extern "C" __attribute__((mesh_shader, kernel_dim(2), kernel_simd_width(req_simd_width), kernel_work_group_size(__VA_ARGS__)))
+#define mesh_shader_3d_simd(req_simd_width, ... /* x, y, z */) extern "C" __attribute__((mesh_shader, kernel_dim(3), kernel_simd_width(req_simd_width), kernel_work_group_size(__VA_ARGS__)))
+#define task_max_mesh_work_groups(x) [[mesh_max_work_groups(x)]]
+#endif
 #endif
 
 #endif

@@ -67,6 +67,10 @@ public:
 		void* mapped_cmd_parameters { nullptr };
 		//! the max size per command that we have computed based on indirect_command_description
 		size_t per_cmd_size { 0u };
+#if defined(FLOOR_DEBUG)
+		//! set if this is a RENDER_MESH pipeline
+		bool has_mesh_support { false };
+#endif
 		
 		//! soft-printf handling
 		mutable std::shared_ptr<device_buffer> printf_buffer;
@@ -87,11 +91,6 @@ public:
 	void complete() override;
 	void reset() override;
 	
-	struct command_range_t {
-		uint32_t offset { 0u };
-		uint32_t count { 0u };
-	};
-	
 protected:
 	fl::flat_map<const device*, vulkan_pipeline_entry> pipelines;
 	
@@ -104,7 +103,8 @@ public:
 	vulkan_indirect_render_command_encoder(const vulkan_indirect_command_pipeline::vulkan_pipeline_entry& pipeline_entry_,
 										   const uint32_t command_idx_,
 										   const device& dev_, const graphics_pipeline& pipeline_,
-										   const bool is_multi_view_);
+										   const bool is_multi_view_,
+										   const bool is_mesh_shading_);
 	~vulkan_indirect_render_command_encoder() override;
 	
 	void set_arguments_vector(std::vector<device_function_arg>&& args) override;
@@ -121,6 +121,10 @@ public:
 												  const int32_t vertex_offset = 0u,
 												  const uint32_t first_instance = 0u,
 												  const INDEX_TYPE index_type = INDEX_TYPE::UINT) override;
+	
+	indirect_render_command_encoder& draw_mesh(const uint3 work_group_count,
+											   const uint3 local_work_size_task,
+											   const uint3 local_work_size_mesh) override;
 	
 	[[noreturn]] indirect_render_command_encoder& draw_patches(const std::vector<const device_buffer*> control_point_buffers,
 															   const device_buffer& tessellation_factors_buffer,
@@ -146,6 +150,8 @@ protected:
 	const uint32_t command_idx { 0u };
 	const device_function::function_entry* vs { nullptr };
 	const device_function::function_entry* fs { nullptr };
+	const device_function::function_entry* ts { nullptr };
+	const device_function::function_entry* ms { nullptr };
 	const vulkan_pass* pass { nullptr };
 	
 	//! cmd buffer in "secondary_cmd_buffers"
@@ -188,8 +194,8 @@ protected:
 	std::vector<device_function_arg> implicit_args;
 	
 	indirect_compute_command_encoder& execute(const uint32_t dim,
-											  const uint3& global_work_size,
-											  const uint3& local_work_size) override;
+											  const uint3 global_work_size,
+											  const uint3 local_work_size) override;
 	
 };
 

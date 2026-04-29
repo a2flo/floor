@@ -68,29 +68,72 @@ static bool create_vulkan_pipeline(vulkan_pipeline_state_t& state,
 								   const vulkan_device& vk_dev,
 								   const vulkan_function_entry* vk_vs_entry,
 								   const vulkan_function_entry* vk_fs_entry,
+								   const vulkan_function_entry* vk_ts_entry,
+								   const vulkan_function_entry* vk_ms_entry,
 								   const bool is_multi_view,
 								   const bool is_indirect) {
 	assert(vk_vs_entry != nullptr);
 	state.vs_entry = vk_vs_entry;
 	state.fs_entry = vk_fs_entry;
+	state.ts_entry = vk_ts_entry;
+	state.ms_entry = vk_ms_entry;
+	
+	// tessellation is not supported
+	if (pipeline_desc.tessellation.max_factor > 0u) {
+		log_error("tessellation is not supported by the Vulkan backend");
+		return false;
+	}
 	
 	// create the pipeline layout
 	std::vector<VkDescriptorSetLayout> desc_set_layouts {
-		vk_dev.fixed_sampler_desc_set_layout,
-		vk_vs_entry->desc_set_layout
+		vk_dev.fixed_sampler_desc_set_layout
 	};
-	if (vk_fs_entry != nullptr) {
-		desc_set_layouts.emplace_back(vk_fs_entry->desc_set_layout);
+	
+	assert(!(state.vs_entry && state.ms_entry));
+	if (state.vs_entry) {
+		desc_set_layouts.emplace_back(vk_vs_entry->desc_set_layout);
+		if (vk_fs_entry != nullptr) {
+			desc_set_layouts.emplace_back(vk_fs_entry->desc_set_layout);
+		}
+	} else {
+		assert(state.ms_entry);
+		if (vk_ts_entry != nullptr) {
+			desc_set_layouts.emplace_back(vk_ts_entry->desc_set_layout);
+		}
+		if (vk_fs_entry != nullptr) {
+			desc_set_layouts.emplace_back(vk_fs_entry->desc_set_layout);
+		}
+		desc_set_layouts.emplace_back(vk_ms_entry->desc_set_layout);
 	}
 	// set argument buffer descriptor set layouts + fill unused sets with an empty descriptor set
 	// NOTE: Vulkan has no way of specifying explicit descriptor set offsets, so we must specify everything in range, even if unused
-	const auto has_arg_buffers_vs = !vk_vs_entry->argument_buffers.empty();
+	const auto has_arg_buffers_vs = (vk_vs_entry && !vk_vs_entry->argument_buffers.empty());
+	const auto has_arg_buffers_ts = (vk_ts_entry && !vk_ts_entry->argument_buffers.empty());
+	const auto has_arg_buffers_ms = (vk_ms_entry && !vk_ms_entry->argument_buffers.empty());
 	const auto has_arg_buffers_fs = (vk_fs_entry && !vk_fs_entry->argument_buffers.empty());
-	const auto empty_desc_set = (has_arg_buffers_vs || has_arg_buffers_fs ? vulkan_program::get_empty_descriptor_set(vk_dev) : nullptr);
-	if (has_arg_buffers_vs) {
-		desc_set_layouts.resize(vulkan_pipeline::argument_buffer_vs_start_set, empty_desc_set);
-		for (const auto& arg_buf : vk_vs_entry->argument_buffers) {
-			desc_set_layouts.emplace_back(arg_buf.layout.desc_set_layout);
+	const auto empty_desc_set = (has_arg_buffers_vs || has_arg_buffers_ts || has_arg_buffers_ms || has_arg_buffers_fs ?
+								 vulkan_program::get_empty_descriptor_set(vk_dev) : nullptr);
+	if (state.vs_entry) {
+		if (has_arg_buffers_vs) {
+			desc_set_layouts.resize(vulkan_pipeline::argument_buffer_vs_start_set, empty_desc_set);
+			for (const auto& arg_buf : vk_vs_entry->argument_buffers) {
+				desc_set_layouts.emplace_back(arg_buf.layout.desc_set_layout);
+			}
+		}
+	} else {
+		if (has_arg_buffers_ts) {
+			assert(!has_flag<toolchain::FUNCTION_FLAGS::VULKAN_LOW_DS>(vk_ts_entry->info->flags));
+			desc_set_layouts.resize(vulkan_pipeline::argument_buffer_ts_start_set_high, empty_desc_set);
+			for (const auto& arg_buf : vk_ts_entry->argument_buffers) {
+				desc_set_layouts.emplace_back(arg_buf.layout.desc_set_layout);
+			}
+		}
+		if (has_arg_buffers_ms) {
+			assert(!has_flag<toolchain::FUNCTION_FLAGS::VULKAN_LOW_DS>(vk_ms_entry->info->flags));
+			desc_set_layouts.resize(vulkan_pipeline::argument_buffer_ms_start_set_high, empty_desc_set);
+			for (const auto& arg_buf : vk_ts_entry->argument_buffers) {
+				desc_set_layouts.emplace_back(arg_buf.layout.desc_set_layout);
+			}
 		}
 	}
 	if (has_arg_buffers_fs) {
@@ -145,7 +188,7 @@ static bool create_vulkan_pipeline(vulkan_pipeline_state_t& state,
 		.maxDepth = pipeline_desc.depth.range.y,
 	};
 	const VkRect2D scissor_rect {
-		// NOTE: Vulkan uses signed integers for the offset, but doesn't actually it to be < 0
+		// NOTE: Vulkan uses signed integers for the offset, but doesn't actually allow it to be < 0
 		.offset = { int(pipeline_desc.scissor.offset.x), int(pipeline_desc.scissor.offset.y) },
 		.extent = { pipeline_desc.scissor.extent.x, pipeline_desc.scissor.extent.y },
 	};
@@ -164,7 +207,7 @@ static bool create_vulkan_pipeline(vulkan_pipeline_state_t& state,
 		.flags = 0,
 		.depthClampEnable = false,
 		.rasterizerDiscardEnable = false,
-		.polygonMode = (!pipeline_desc.render_wireframe ? VK_POLYGON_MODE_FILL : VK_POLYGON_MODE_LINE),
+		.polygonMode = (!pipeline_desc.options.render_wireframe ? VK_POLYGON_MODE_FILL : VK_POLYGON_MODE_LINE),
 		.cullMode = vulkan_cull_mode_from_cull_mode(pipeline_desc.cull_mode),
 		.frontFace = vulkan_front_face_from_front_face(pipeline_desc.front_face),
 		.depthBiasEnable = false,
@@ -255,10 +298,18 @@ static bool create_vulkan_pipeline(vulkan_pipeline_state_t& state,
 	}
 	
 	// create pipeline
-	std::array<VkPipelineShaderStageCreateInfo, 2> stages {};
-	stages[0] = vk_vs_entry->stage_info;
+	std::array<VkPipelineShaderStageCreateInfo, 3> stages {};
+	uint32_t active_stages = 0u;
+	if (state.vs_entry) {
+		stages[active_stages++] = vk_vs_entry->stage_info;
+	} else {
+		if (state.ts_entry) {
+			stages[active_stages++] = vk_ts_entry->stage_info;
+		}
+		stages[active_stages++] = vk_ms_entry->stage_info;
+	}
 	if (vk_fs_entry != nullptr) {
-		stages[1] = vk_fs_entry->stage_info;
+		stages[active_stages++] = vk_fs_entry->stage_info;
 	}
 	
 	const auto render_pass = vulkan_base_pass.get_vulkan_render_pass(vk_dev, is_multi_view);
@@ -287,23 +338,30 @@ static bool create_vulkan_pipeline(vulkan_pipeline_state_t& state,
 		pipeline_flags |= VK_PIPELINE_CREATE_CAPTURE_STATISTICS_BIT_KHR;
 	}
 	
-	// allow dynamic change of viewport and scissor
-	const std::array dyn_state_arr {
-		VkDynamicState::VK_DYNAMIC_STATE_VIEWPORT,
-		VkDynamicState::VK_DYNAMIC_STATE_SCISSOR,
-	};
+	// determine all required dynamic change:
+	// for indirect pipelines (-> secondary command buffers later on), we can't (or need to) use dynamic state
+	std::array<VkDynamicState, 3> dyn_state_arr;
+	uint32_t active_dyn_state_size = 0u;
+	if (!is_indirect) {
+		dyn_state_arr[active_dyn_state_size++] = VkDynamicState::VK_DYNAMIC_STATE_VIEWPORT;
+		dyn_state_arr[active_dyn_state_size++] = VkDynamicState::VK_DYNAMIC_STATE_SCISSOR;
+		if (pipeline_desc.options.dynamic_cull_state) {
+			dyn_state_arr[active_dyn_state_size++] = VkDynamicState::VK_DYNAMIC_STATE_CULL_MODE;
+		}
+	}
 	const VkPipelineDynamicStateCreateInfo dyn_state {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
 		.pNext = nullptr,
 		.flags = 0,
-		.dynamicStateCount = size(dyn_state_arr),
+		.dynamicStateCount = active_dyn_state_size,
 		.pDynamicStates = &dyn_state_arr[0],
 	};
+	
 	const VkGraphicsPipelineCreateInfo gfx_pipeline_info {
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
 		.pNext = nullptr,
 		.flags = pipeline_flags,
-		.stageCount = (vk_fs_entry != nullptr ? 2 : 1),
+		.stageCount = active_stages,
 		.pStages = &stages[0],
 		.pVertexInputState = &vertex_input_state,
 		.pInputAssemblyState = &input_assembly_state,
@@ -313,8 +371,7 @@ static bool create_vulkan_pipeline(vulkan_pipeline_state_t& state,
 		.pMultisampleState = &multisample_state,
 		.pDepthStencilState = (has_depth_attachment ? &depth_stencil_state : nullptr),
 		.pColorBlendState = &color_blend_state,
-		// for indirect pipelines (-> secondary command buffers later on), we can't use dynamic state
-		.pDynamicState = (!is_indirect ? &dyn_state : nullptr),
+		.pDynamicState = (active_dyn_state_size > 0 ? &dyn_state : nullptr),
 		.layout = state.layout,
 		.renderPass = render_pass,
 		.subpass = 0,
@@ -347,41 +404,69 @@ graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 	// Vulkan requires an actual render pass for pipeline creation, it is however allowed to use a compatible render pass later on
 	// -> create a base render pass for this pipeline, since we can't access the actual corresponding render pass here (and there might be multiple ones)
 	sv_vulkan_base_pass = (create_sv_pipeline ? create_vulkan_base_pass_desc(pipeline_desc, devices, false) : nullptr);
-	mv_vulkan_base_pass = (create_mv_pipeline ? create_vulkan_base_pass_desc((multi_view_pipeline_desc ? *multi_view_pipeline_desc : pipeline_desc),
+	mv_vulkan_base_pass = (create_mv_pipeline ? create_vulkan_base_pass_desc((multi_view_pipeline_desc ?
+																			  *multi_view_pipeline_desc : pipeline_desc),
 																			 devices, true) : nullptr);
 	
 	// now create the actual pipeline(s)
 	const auto vk_vs = (const vulkan_function*)pipeline_desc.vertex_shader;
 	const auto vk_fs = (const vulkan_function*)pipeline_desc.fragment_shader;
+	const auto vk_ts = (const vulkan_function*)pipeline_desc.task_shader;
+	const auto vk_ms = (const vulkan_function*)pipeline_desc.mesh_shader;
 	
 	for (const auto& dev : devices) {
 		const auto& vk_dev = (const vulkan_device&)*dev;
-		const auto vk_vs_entry = (const vulkan_function_entry*)vk_vs->get_function_entry(*dev);
+		const auto vk_vs_entry = (vk_vs != nullptr ? (const vulkan_function_entry*)vk_vs->get_function_entry(*dev) : nullptr);
 		const auto vk_fs_entry = (vk_fs != nullptr ? (const vulkan_function_entry*)vk_fs->get_function_entry(*dev) : nullptr);
+		const auto vk_ts_entry = (vk_ts != nullptr ? (const vulkan_function_entry*)vk_ts->get_function_entry(*dev) : nullptr);
+		const auto vk_ms_entry = (vk_ms != nullptr ? (const vulkan_function_entry*)vk_ms->get_function_entry(*dev) : nullptr);
+		
+		if (vk_vs_entry) {
+			if (vk_vs_entry->info->type != toolchain::FUNCTION_TYPE::VERTEX) {
+				log_error("expected a vertex shader instead of $ ($) in pipeline \"$\"",
+						  vk_vs_entry->info->type, vk_vs_entry->info->name, pipeline_desc.debug_label);
+				return;
+			}
+		} else {
+			if (!vk_ms_entry) {
+				log_error("expected either a vertex shader or a mesh shader in pipeline \"$\"",
+						  pipeline_desc_.debug_label);
+				return;
+			} else if (vk_ms_entry->info->type != toolchain::FUNCTION_TYPE::MESH) {
+				log_error("expected a mesh shader instead of $ ($) in pipeline \"$\"",
+						  vk_ms_entry->info->type, vk_ms_entry->info->name, pipeline_desc.debug_label);
+				return;
+			}
+			if (vk_ts_entry && vk_ts_entry->info->type != toolchain::FUNCTION_TYPE::TASK) {
+				log_error("expected a task shader instead of $ ($) in pipeline \"$\"",
+						  vk_ts_entry->info->type, vk_ts_entry->info->name, pipeline_desc.debug_label);
+				return;
+			}
+		}
 		
 		vulkan_pipeline_entry_t entry {};
 		// TODO/NOTE: use/support VK_NV_inherited_viewport_scissor to avoid needing separate indirect pipelines
 		if (create_sv_pipeline) {
 			if (!create_vulkan_pipeline(entry.single_view_pipeline, *sv_vulkan_base_pass, pipeline_desc,
-										vk_dev, vk_vs_entry, vk_fs_entry, false, false)) {
+										vk_dev, vk_vs_entry, vk_fs_entry, vk_ts_entry, vk_ms_entry, false, false)) {
 				return;
 			}
-			if (pipeline_desc.support_indirect_rendering &&
+			if (pipeline_desc.options.support_indirect_rendering &&
 				!create_vulkan_pipeline(entry.indirect_single_view_pipeline, *sv_vulkan_base_pass, pipeline_desc,
-										vk_dev, vk_vs_entry, vk_fs_entry, false, true)) {
+										vk_dev, vk_vs_entry, vk_fs_entry, vk_ts_entry, vk_ms_entry, false, true)) {
 				return;
 			}
 		}
 		if (create_mv_pipeline) {
 			if (!create_vulkan_pipeline(entry.multi_view_pipeline, *mv_vulkan_base_pass,
 										(multi_view_pipeline_desc ? *multi_view_pipeline_desc : pipeline_desc),
-										vk_dev, vk_vs_entry, vk_fs_entry, true, false)) {
+										vk_dev, vk_vs_entry, vk_fs_entry, vk_ts_entry, vk_ms_entry, true, false)) {
 				return;
 			}
-			if (pipeline_desc.support_indirect_rendering &&
+			if (pipeline_desc.options.support_indirect_rendering &&
 				!create_vulkan_pipeline(entry.indirect_multi_view_pipeline, *mv_vulkan_base_pass,
 										(multi_view_pipeline_desc ? *multi_view_pipeline_desc : pipeline_desc),
-										vk_dev, vk_vs_entry, vk_fs_entry, true, true)) {
+										vk_dev, vk_vs_entry, vk_fs_entry, vk_ts_entry, vk_ms_entry, true, true)) {
 				return;
 			}
 		}

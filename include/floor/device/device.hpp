@@ -215,6 +215,9 @@ public:
 	//! NOTE: otherwise, only buffers and simple variables/fields are supported
 	bool argument_buffer_image_support { false };
 	
+	//! true if the device supports task/mesh shaders
+	bool mesh_shading_support { false };
+	
 	//! function parameter workaround (uses constant buffer instead of direct function parameter)
 	bool param_workaround { false };
 	

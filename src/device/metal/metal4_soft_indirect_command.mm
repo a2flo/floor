@@ -54,6 +54,9 @@ indirect_command_pipeline(desc_) {
 			
 			metal4_soft_pipeline_entry entry { mtl_dev };
 			entry.debug_label = (desc.debug_label.empty() ? "generic_indirect_command_pipeline" : desc.debug_label);
+#if defined(FLOOR_DEBUG)
+			entry.has_mesh_support = (desc.command_type == indirect_command_description::COMMAND_TYPE::RENDER_MESH);
+#endif
 			pipelines.insert_or_assign(dev.get(), std::move(entry));
 		}
 	}
@@ -77,7 +80,8 @@ metal4_soft_pipeline_entry* metal4_soft_indirect_command_pipeline::get_metal_pip
 indirect_render_command_encoder& metal4_soft_indirect_command_pipeline::add_render_command(const device& dev,
 																						   const graphics_pipeline& pipeline,
 																						   const bool is_multi_view_) {
-	if (desc.command_type != indirect_command_description::COMMAND_TYPE::RENDER) {
+	const auto is_mesh_shading = (desc.command_type == indirect_command_description::COMMAND_TYPE::RENDER_MESH);
+	if (desc.command_type != indirect_command_description::COMMAND_TYPE::RENDER && !is_mesh_shading) {
 		throw std::runtime_error("adding render commands to a compute indirect command pipeline is not allowed");
 	}
 	
@@ -89,7 +93,8 @@ indirect_render_command_encoder& metal4_soft_indirect_command_pipeline::add_rend
 		throw std::runtime_error("already encoded the max amount of commands in indirect command pipeline " + desc.debug_label);
 	}
 	
-	auto render_enc = std::make_unique<metal4_soft_indirect_render_command_encoder>(*pipeline_entry, dev, pipeline, is_multi_view_);
+	auto render_enc = std::make_unique<metal4_soft_indirect_render_command_encoder>(*pipeline_entry, dev, pipeline,
+																					is_multi_view_, is_mesh_shading);
 	auto render_enc_ptr = render_enc.get();
 	commands.emplace_back(std::move(render_enc));
 	return *render_enc_ptr;
@@ -213,8 +218,10 @@ void metal4_soft_pipeline_entry::printf_init(const device_queue& dev_queue) cons
 metal4_soft_indirect_render_command_encoder::metal4_soft_indirect_render_command_encoder(metal4_soft_pipeline_entry& pipeline_entry_,
 																						 const device& dev_,
 																						 const graphics_pipeline& pipeline_,
-																						 const bool is_multi_view_) :
-indirect_render_command_encoder(dev_, pipeline_, is_multi_view_), metal4_resource_container_t(), pipeline_entry(pipeline_entry_) {
+																						 const bool is_multi_view_,
+																						 const bool is_mesh_shading_) :
+indirect_render_command_encoder(dev_, pipeline_, is_multi_view_, is_mesh_shading_),
+metal4_resource_container_t(), pipeline_entry(pipeline_entry_) {
 	@autoreleasepool {
 		const auto& mtl_pipeline = (const metal4_pipeline&)pipeline;
 		const auto mtl_render_pipeline_entry = mtl_pipeline.get_metal_pipeline_entry(dev);
@@ -248,6 +255,30 @@ indirect_render_command_encoder(dev_, pipeline_, is_multi_view_), metal4_resourc
 										 (err ? [[err localizedDescription] UTF8String] : "<no-error-msg>"));
 			}
 		}
+		if (mtl_render_pipeline_entry->ts_entry) {
+			ts_info = mtl_render_pipeline_entry->ts_entry->info;
+			has_soft_printf |= has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(ts_info->flags);
+			const auto ts_mtl_entry = (const metal4_function_entry*)mtl_render_pipeline_entry->ts_entry;
+			ts_arg_table = [mtl_dev.device newArgumentTableWithDescriptor:ts_mtl_entry->arg_table_descriptor
+																	error:&err];
+			if (!ts_arg_table || err) {
+				throw std::runtime_error("failed to create TS argument table for device " + dev.name +
+										 (err ? [[err localizedDescription] UTF8String] : "<no-error-msg>"));
+			}
+		}
+		if (mtl_render_pipeline_entry->ms_entry) {
+			ms_info = mtl_render_pipeline_entry->ms_entry->info;
+			has_soft_printf |= has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(ms_info->flags);
+			const auto ms_mtl_entry = (const metal4_function_entry*)mtl_render_pipeline_entry->ms_entry;
+			ms_arg_table = [mtl_dev.device newArgumentTableWithDescriptor:ms_mtl_entry->arg_table_descriptor
+																	error:&err];
+			if (!ms_arg_table || err) {
+				throw std::runtime_error("failed to create MS argument table for device " + dev.name +
+										 (err ? [[err localizedDescription] UTF8String] : "<no-error-msg>"));
+			}
+		}
+		
+		validate_shader_combinations(dev, vs_info, ts_info, ms_info);
 		
 		// pipeline state is a resource that must be tracked
 		add_resource(pipeline_state);
@@ -266,19 +297,28 @@ metal4_soft_indirect_render_command_encoder::~metal4_soft_indirect_render_comman
 		pipeline_state = nil;
 		vs_arg_table = nil;
 		fs_arg_table = nil;
+		ts_arg_table = nil;
+		ms_arg_table = nil;
 	}
 }
 
 void metal4_soft_indirect_render_command_encoder::set_arguments_vector(std::vector<device_function_arg>&& args) {
 	@autoreleasepool {
-		assert(vs_info);
 		std::vector<device_function_arg> implicit_args;
-		const auto vs_has_soft_printf = toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(vs_info->flags);
+		const auto vs_has_soft_printf = (vs_info && toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(vs_info->flags));
 		const auto fs_has_soft_printf = (fs_info && toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(fs_info->flags));
-		if (vs_has_soft_printf || fs_has_soft_printf) {
-			// NOTE: will use the same printf buffer here, but we need to specify it twice if both functions use it
+		const auto ts_has_soft_printf = (ts_info && toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(ts_info->flags));
+		const auto ms_has_soft_printf = (ms_info && toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(ms_info->flags));
+		if (vs_has_soft_printf || fs_has_soft_printf || ts_has_soft_printf || ms_has_soft_printf) {
+			// NOTE: will use the same printf buffer here, but we need to specify it as many times as we have functions using it
 			// NOTE: these are automatically added to the used resources
 			if (vs_has_soft_printf) {
+				implicit_args.emplace_back(pipeline_entry.printf_buffer);
+			}
+			if (ts_has_soft_printf) {
+				implicit_args.emplace_back(pipeline_entry.printf_buffer);
+			}
+			if (ms_has_soft_printf) {
 				implicit_args.emplace_back(pipeline_entry.printf_buffer);
 			}
 			if (fs_has_soft_printf) {
@@ -286,27 +326,62 @@ void metal4_soft_indirect_render_command_encoder::set_arguments_vector(std::vect
 			}
 		}
 		
-		metal4_args::argument_table_encoders_t<2u> shader_encoders;
-		shader_encoders.encoders[0] = {
-			.arg_table = vs_arg_table,
-			.constants_buffer = nullptr,
-			.constant_buffer_info = nullptr,
-		};
-		if (fs_info) {
-			shader_encoders.encoders[1] = {
-				.arg_table = fs_arg_table,
+		if (vs_info) {
+			metal4_args::argument_table_encoders_t<2u> shader_encoders;
+			shader_encoders.encoders[0] = {
+				.arg_table = vs_arg_table,
 				.constants_buffer = nullptr,
 				.constant_buffer_info = nullptr,
 			};
-		}
-		if (!metal4_args::set_and_handle_arguments<metal4_args::ENCODER_TYPE::ARGUMENT_TABLE, true, 2u>(dev, shader_encoders,
-																										{ vs_info, fs_info },
-																										args, implicit_args,
-																										{ this, this }, nullptr,
-																										&pipeline_entry.arg_buffers,
-																										false)) {
-			throw std::runtime_error("failed to encode shader arguments in \"" + vs_info->name + "\" + \"" +
-									 (fs_info ? fs_info->name : "<no-fragment-shader>") + "\"");
+			if (fs_info) {
+				shader_encoders.encoders[1] = {
+					.arg_table = fs_arg_table,
+					.constants_buffer = nullptr,
+					.constant_buffer_info = nullptr,
+				};
+			}
+			if (!metal4_args::set_and_handle_arguments<metal4_args::ENCODER_TYPE::ARGUMENT_TABLE, true, 2u>(dev, shader_encoders,
+																											{ vs_info, fs_info },
+																											args, implicit_args,
+																											{ this, this }, nullptr,
+																											&pipeline_entry.arg_buffers,
+																											false)) {
+				throw std::runtime_error("failed to encode shader arguments in \"" + vs_info->name + "\" + \"" +
+										 (fs_info ? fs_info->name : "<no-fragment-shader>") + "\"");
+			}
+		} else {
+			assert(ms_info);
+			
+			metal4_args::argument_table_encoders_t<3u> shader_encoders;
+			if (ts_info) {
+				shader_encoders.encoders[0] = {
+					.arg_table = ts_arg_table,
+					.constants_buffer = nullptr,
+					.constant_buffer_info = nullptr,
+				};
+			}
+			shader_encoders.encoders[1] = {
+				.arg_table = ms_arg_table,
+				.constants_buffer = nullptr,
+				.constant_buffer_info = nullptr,
+			};
+			if (fs_info) {
+				shader_encoders.encoders[2] = {
+					.arg_table = fs_arg_table,
+					.constants_buffer = nullptr,
+					.constant_buffer_info = nullptr,
+				};
+			}
+			if (!metal4_args::set_and_handle_arguments<metal4_args::ENCODER_TYPE::ARGUMENT_TABLE, true, 3u>(dev, shader_encoders,
+																											{ ts_info, ms_info, fs_info },
+																											args, implicit_args,
+																											{ this, this, this }, nullptr,
+																											&pipeline_entry.arg_buffers,
+																											false)) {
+				throw std::runtime_error("failed to encode shader arguments in \"" + ms_info->name + "\" + \"" +
+										 (ts_info ? ts_info->name : "<no-task-shader>") + "\" + \"" +
+										 (fs_info ? fs_info->name : "<no-fragment-shader>"));
+			}
 		}
 	}
 }
@@ -317,7 +392,7 @@ indirect_render_command_encoder& metal4_soft_indirect_render_command_encoder::dr
 																				   const uint32_t first_instance) {
 	const auto mtl_primitve = metal4_pipeline::metal_primitive_type_from_primitive(pipeline.get_description(is_multi_view).primitive);
 	pipeline_entry.render_commands.emplace_back(metal4_soft_pipeline_entry::render_command_t {
-		.is_indexed = false,
+		.type = metal4_soft_pipeline_entry::RENDER_TYPE::VERTEX,
 		.vertex = {
 			.primitive_type = mtl_primitve,
 			.vertex_count = vertex_count,
@@ -342,7 +417,7 @@ indirect_render_command_encoder& metal4_soft_indirect_render_command_encoder::dr
 		const auto index_size = index_type_size(index_type);
 		auto idx_buffer = index_buffer.get_underlying_metal4_buffer_safe()->get_metal_buffer();
 		pipeline_entry.render_commands.emplace_back(metal4_soft_pipeline_entry::render_command_t {
-			.is_indexed = true,
+			.type = metal4_soft_pipeline_entry::RENDER_TYPE::INDEXED,
 			.indexed = {
 				.primitive_type = mtl_primitve,
 				.index_type = mtl_index_type,
@@ -362,6 +437,27 @@ indirect_render_command_encoder& metal4_soft_indirect_render_command_encoder::dr
 		
 		return *this;
 	}
+}
+
+indirect_render_command_encoder& metal4_soft_indirect_render_command_encoder::draw_mesh(const uint3 work_group_count,
+																						const uint3 local_work_size_task,
+																						const uint3 local_work_size_mesh) {
+#if defined(FLOOR_DEBUG)
+	if (!pipeline_entry.has_mesh_support) {
+		assert(false);
+		throw std::runtime_error("mesh shading is not supported");
+	}
+#endif
+	
+	pipeline_entry.render_commands.emplace_back(metal4_soft_pipeline_entry::render_command_t {
+		.type = metal4_soft_pipeline_entry::RENDER_TYPE::MESH,
+		.mesh = {
+			.work_group_count = work_group_count,
+			.local_work_size_task = local_work_size_task,
+			.local_work_size_mesh = local_work_size_mesh,
+		}
+	});
+	return *this;
 }
 
 metal4_soft_indirect_compute_command_encoder::metal4_soft_indirect_compute_command_encoder(metal4_soft_pipeline_entry& pipeline_entry_,
@@ -425,8 +521,8 @@ void metal4_soft_indirect_compute_command_encoder::set_arguments_vector(std::vec
 }
 
 indirect_compute_command_encoder& metal4_soft_indirect_compute_command_encoder::execute(const uint32_t dim,
-																						const uint3& global_work_size,
-																						const uint3& local_work_size) {
+																						const uint3 global_work_size,
+																						const uint3 local_work_size) {
 	// compute sizes
 	auto [grid_dim, block_dim] = ((const metal4_function&)kernel_obj).compute_grid_and_block_dim(*entry, dim,
 																								 global_work_size, local_work_size);

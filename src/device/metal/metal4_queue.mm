@@ -39,11 +39,6 @@
 namespace fl {
 using namespace std::literals;
 
-//! completes the specified cmd buffer (blocking) + performs all the completion handling and clean up
-static void metal4_complete_cmd_buffer(metal4_command_pool& pool,
-									   metal4_command_buffer&& cmd_buffer,
-									   metal4_queue::command_buffer_completion_handler_f&& completion_handler);
-
 struct metal4_command_buffer_completion_impl;
 
 //! single completion command used in "metal4_cmd_completion_handler"
@@ -56,14 +51,6 @@ struct metal4_completion_cmd_t {
 
 //! the command completion handler/pool implementation
 using metal4_cmd_completion_handler = generic_cmd_completion_handler<metal4_completion_cmd_t, metal4_command_buffer_completion_impl>;
-
-//! called to complete (wait for) a single "metal4_completion_cmd_t"
-struct metal4_command_buffer_completion_impl {
-	static void complete(metal4_cmd_completion_handler::cmd_t& cmd) {
-		metal4_complete_cmd_buffer(*cmd.pool, std::move(cmd.cmd_buffer), std::move(cmd.completion_handler));
-		cmd.cmd_buffer.reset();
-	}
-};
 
 //! the command completion handler instance
 static std::unique_ptr<metal4_cmd_completion_handler> mtl_cmd_completion_handler;
@@ -141,6 +128,8 @@ struct metal4_command_pool {
 		
 		//! set during submission so that GPU execution times can be accumulated
 		std::atomic<uint64_t>* profiling_sum { nullptr };
+		//! time in [s] it took to execute the command buffer
+		double elapsed_time { 0.0 };
 		bool is_profiling { false };
 	};
 	resource_slot_container<cmd_buffer_state_t, metal_thread_resource_count> cmd_resources;
@@ -165,6 +154,16 @@ struct metal4_command_pool {
 					ret.residency_set = res->residency_set;
 					ret.index = res.index();
 					ret.name = name;
+					
+#if defined(FLOOR_DEBUG) || FLOOR_METAL_PROFILING
+					if (name && name[0] != '\0') {
+						NSString* label = [NSString stringWithUTF8String:floor_force_nonnull(name)];
+						ret.cmd_buffer.label = label;
+					} else {
+						ret.cmd_buffer.label = nil;
+					}
+#endif
+					
 					return ret;
 				}
 				
@@ -260,6 +259,72 @@ struct metal4_command_pool {
 		// NOTE: thread-safe, b/c this is only called from a single (the owning/originating) thread
 		cmd_resources.resources[cmd_buffer.index].completion_handlers.emplace_back(std::move(completion_handler));
 	}
+	
+	//! completes the specified cmd buffer (blocking) + performs all the completion handling and clean up
+	static void metal4_complete_cmd_buffer(metal4_command_pool& pool,
+										   metal4_command_buffer&& cmd_buffer,
+										   metal4_queue::command_buffer_completion_handler_f&& completion_handler) {
+		assert(cmd_buffer.index < metal_thread_resource_count);
+		auto& cmd = pool.cmd_resources.resources[cmd_buffer.index];
+		
+		// NOTE: while I would prefer to simply wait for the CV here, we may run into a race-ish condition, where the command gets completed
+		//       and the CV gets notified, while we're in the process of setting up the CV wait
+		//       -> CV may never get notified and we would have to wait for a long CV timeout even if the command is already complete
+		if (!cmd.completed) {
+			// instead: do a spin-wait and only wait on the CV if the command doesn't get completed fast enough
+			const auto start_time = core::unix_timestamp_ms();
+			for (uint32_t iter = 0u, attempt = 0u; ; ++iter, ++attempt) {
+				if (cmd.completed) {
+					break;
+				}
+				spin_wait_or_yield(attempt);
+				
+				if (iter > 0 && (iter % 1024u) == 0u) [[unlikely]] {
+					const auto cur_time = core::unix_timestamp_ms();
+					if (cur_time - start_time >= 60'000u || metal4_command_pool::is_ctx_shutdown) {
+						log_error("command buffer (\"$\") timeout", safe_string(cmd_buffer.name));
+						cmd.completed = true;
+						// NOTE: not returning here, still need to properly complete/clean up the command buffer even if there was an error
+						break;
+					}
+					
+					// only now back off and wait for the CV
+					std::unique_lock<std::mutex> completed_lock_guard(cmd.completed_cv_lock);
+					const auto wait_time = 5ms * std::clamp(iter / 1024u, 1u, 10u);
+					if (cmd.completed_cv.wait_for(completed_lock_guard, wait_time, [&cmd] { return cmd.completed.load(); })) {
+						assert(cmd.completed.load());
+						break;
+					}
+					// else: continue waiting
+				}
+			}
+		}
+		
+		// call internal completion handlers
+		std::vector<metal4_queue::metal4_completion_handler_f> completion_handlers;
+		completion_handlers.swap(cmd.completion_handlers);
+		for (const auto& compl_handler : completion_handlers) {
+			if (compl_handler) {
+				compl_handler();
+			}
+		}
+		
+		// call submit-specified handler (this must be the final handler)
+		if (completion_handler) {
+			completion_handler(cmd_buffer, cmd.is_error, cmd.error_str);
+		}
+		
+		if (cmd.is_profiling && cmd.queue->profiling_callback) {
+			const auto label = [cmd_buffer.cmd_buffer.label UTF8String];
+			cmd.queue->profiling_callback(label ?: "<no-label>", uint64_t(cmd.elapsed_time * 1'000'000'000.0));
+		}
+		
+		// inform queue that the submission has completed
+		cmd.queue->completed_submission(cmd.submission_number);
+		
+		// mark resource + internals as free again
+		pool.cmd_resources.release_resource(cmd_buffer.index);
+	}
 };
 
 //! per-thread/thread-local Metal command pool/resources
@@ -268,66 +333,6 @@ static inline thread_local metal4_command_pool* metal4_thread_command_pool { nul
 //! creates and initializes the per-thread/thread-local primary command pool if it doesn't exist yet,
 //! otherwise returns the existing one, returns nullptr on failure
 static metal4_command_pool* create_or_get_thread_command_pool(const metal_device& dev);
-
-void metal4_complete_cmd_buffer(metal4_command_pool& pool,
-								metal4_command_buffer&& cmd_buffer,
-								metal4_queue::command_buffer_completion_handler_f&& completion_handler) {
-	assert(cmd_buffer.index < metal_thread_resource_count);
-	auto& cmd = pool.cmd_resources.resources[cmd_buffer.index];
-	
-	// NOTE: while I would prefer to simply wait for the CV here, we may run into a race-ish condition, where the command gets completed
-	//       and the CV gets notified, while we're in the process of setting up the CV wait
-	//       -> CV may never get notified and we would have to wait for a long CV timeout even if the command is already complete
-	if (!cmd.completed) {
-		// instead: do a spin-wait and only wait on the CV if the command doesn't get completed fast enough
-		const auto start_time = core::unix_timestamp_ms();
-		for (uint32_t iter = 0u, attempt = 0u; ; ++iter, ++attempt) {
-			if (cmd.completed) {
-				break;
-			}
-			spin_wait_or_yield(attempt);
-			
-			if (iter > 0 && (iter % 1024u) == 0u) [[unlikely]] {
-				const auto cur_time = core::unix_timestamp_ms();
-				if (cur_time - start_time >= 60'000u || metal4_command_pool::is_ctx_shutdown) {
-					log_error("command buffer (\"$\") timeout", safe_string(cmd_buffer.name));
-					cmd.completed = true;
-					// NOTE: not returning here, still need to properly complete/clean up the command buffer even if there was an error
-					break;
-				}
-				
-				// only now back off and wait for the CV
-				std::unique_lock<std::mutex> completed_lock_guard(cmd.completed_cv_lock);
-				const auto wait_time = 5ms * std::clamp(iter / 1024u, 1u, 10u);
-				if (cmd.completed_cv.wait_for(completed_lock_guard, wait_time, [&cmd] { return cmd.completed.load(); })) {
-					assert(cmd.completed.load());
-					break;
-				}
-				// else: continue waiting
-			}
-		}
-	}
-	
-	// call internal completion handlers
-	std::vector<metal4_queue::metal4_completion_handler_f> completion_handlers;
-	completion_handlers.swap(cmd.completion_handlers);
-	for (const auto& compl_handler : completion_handlers) {
-		if (compl_handler) {
-			compl_handler();
-		}
-	}
-	
-	// call submit-specified handler (this must be the final handler)
-	if (completion_handler) {
-		completion_handler(cmd_buffer, cmd.is_error, cmd.error_str);
-	}
-	
-	// inform queue that the submission has completed
-	cmd.queue->completed_submission(cmd.submission_number);
-	
-	// mark resource + internals as free again
-	pool.cmd_resources.release_resource(cmd_buffer.index);
-}
 
 //! stores all Metal command pool instances
 struct metal4_command_pool_storage {
@@ -444,9 +449,10 @@ metal4_command_pool* create_or_get_thread_command_pool(const metal_device& dev) 
 						log_error("command buffer error: $", compl_state.error_str);
 					}
 				}
+
+				compl_state.elapsed_time = ([feedback GPUEndTime] - [feedback GPUStartTime]);
 				if (compl_state.is_profiling) [[unlikely]] {
-					const auto elapsed_time = ([feedback GPUEndTime] - [feedback GPUStartTime]);
-					*compl_state.profiling_sum += uint64_t(elapsed_time * 1000000.0);
+					*compl_state.profiling_sum += uint64_t(compl_state.elapsed_time * 1000000.0);
 				}
 				
 				compl_state.completed = true;
@@ -457,6 +463,14 @@ metal4_command_pool* create_or_get_thread_command_pool(const metal_device& dev) 
 		return metal4_thread_command_pool;
 	}
 }
+
+//! called to complete (wait for) a single "metal4_completion_cmd_t"
+struct metal4_command_buffer_completion_impl {
+	static void complete(metal4_cmd_completion_handler::cmd_t& cmd) {
+		metal4_command_pool::metal4_complete_cmd_buffer(*cmd.pool, std::move(cmd.cmd_buffer), std::move(cmd.completion_handler));
+		cmd.cmd_buffer.reset();
+	}
+};
 
 static bool did_init_metal4_queue { false };
 void metal4_queue::init() {
@@ -605,7 +619,7 @@ static inline void handle_metal_indirect_compute(const mtl_indirect_cmd_type& mt
 		[cmd_buffer.cmd_buffer beginCommandBufferWithAllocator:cmd_buffer.allocator];
 		
 		id <MTL4ComputeCommandEncoder> encoder = [cmd_buffer.cmd_buffer computeCommandEncoder];
-#if defined(FLOOR_DEBUG)
+#if defined(FLOOR_DEBUG) || FLOOR_METAL_PROFILING
 		if (params.debug_label) {
 			[encoder setLabel:[NSString stringWithUTF8String:params.debug_label]];
 		}
@@ -791,11 +805,9 @@ mtl_queue(mtl_queue_), error_signal(error_signal_), is_blocking(is_blocking_), h
 		}
 		[cmd_buffer.cmd_buffer beginCommandBufferWithAllocator:cmd_buffer.allocator];
 		
-#if defined(FLOOR_DEBUG)
+#if defined(FLOOR_DEBUG) || FLOOR_METAL_PROFILING
 		if (has_name) {
-			NSString* label = [NSString stringWithUTF8String:floor_force_nonnull(name)];
-			cmd_buffer.cmd_buffer.label = label;
-			[cmd_buffer.cmd_buffer pushDebugGroup:label];
+			[cmd_buffer.cmd_buffer pushDebugGroup:cmd_buffer.cmd_buffer.label ?: @"" /* we know this is non-null at this point ... */];
 		}
 #endif
 		
@@ -811,7 +823,7 @@ metal4_command_block::~metal4_command_block() {
 	}
 	
 	@autoreleasepool {
-#if defined(FLOOR_DEBUG)
+#if defined(FLOOR_DEBUG) || FLOOR_METAL_PROFILING
 		if (has_name) {
 			[cmd_buffer.cmd_buffer popDebugGroup];
 		}
@@ -842,4 +854,3 @@ metal4_command_block::~metal4_command_block() {
 } // namespace fl
 
 #endif
-

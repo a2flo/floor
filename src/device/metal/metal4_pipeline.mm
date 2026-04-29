@@ -38,155 +38,243 @@ metal4_pipeline::metal4_pipeline(const render_pipeline_description& pipeline_des
 graphics_pipeline(pipeline_desc_, with_multi_view_support) {
 	// NOTE: with Metal, we don't actually have to create an extra pipeline for multi-view support
 	
+	// tessellation is no longer supported
+	if (pipeline_desc.tessellation.max_factor > 0u) {
+		log_error("tessellation is not supported by Metal 4");
+		return;
+	}
+	
 	const auto mtl_vs = (const metal4_function*)pipeline_desc.vertex_shader;
 	const auto mtl_fs = (const metal4_function*)pipeline_desc.fragment_shader;
+	const auto mtl_ts = (const metal4_function*)pipeline_desc.task_shader;
+	const auto mtl_ms = (const metal4_function*)pipeline_desc.mesh_shader;
 	
 	static const bool dump_reflection_info = floor::get_metal_dump_reflection_info();
 	
 	@autoreleasepool {
 		for (const auto& dev : devices) {
 			const auto& mtl_dev = ((const metal_device&)*dev).device;
-			const auto mtl_vs_entry = (const metal4_function_entry*)mtl_vs->get_function_entry(*dev);
+			const auto mtl_vs_entry = (mtl_vs != nullptr ? (const metal4_function_entry*)mtl_vs->get_function_entry(*dev) : nullptr);
 			const auto mtl_fs_entry = (mtl_fs != nullptr ? (const metal4_function_entry*)mtl_fs->get_function_entry(*dev) : nullptr);
+			const auto mtl_ts_entry = (mtl_ts != nullptr ? (const metal4_function_entry*)mtl_ts->get_function_entry(*dev) : nullptr);
+			const auto mtl_ms_entry = (mtl_ms != nullptr ? (const metal4_function_entry*)mtl_ms->get_function_entry(*dev) : nullptr);
 			
-			MTL4RenderPipelineDescriptor* mtl_pipeline_desc = [MTL4RenderPipelineDescriptor new];
-			mtl_pipeline_desc.options = [MTL4PipelineOptions new];
-			
-			mtl_pipeline_desc.label = (pipeline_desc.debug_label.empty() ? @"metal_graphics_pipeline" :
-									   [NSString stringWithUTF8String:(pipeline_desc.debug_label).c_str()]);
-			mtl_pipeline_desc.vertexFunctionDescriptor = mtl_vs_entry->function_descriptor;
-			mtl_pipeline_desc.fragmentFunctionDescriptor = (mtl_fs_entry != nullptr ? mtl_fs_entry->function_descriptor : nil);
-			// NOTE: should always be true, even when no fragment shader is specified as documentation says (e.g. for vs-only shadow rendering)
-			mtl_pipeline_desc.rasterizationEnabled = true;
-			mtl_pipeline_desc.vertexDescriptor = nil;
-			if (!floor::get_metal_soft_indirect()) {
-				mtl_pipeline_desc.supportIndirectCommandBuffers = (pipeline_desc.support_indirect_rendering ?
-																   MTL4IndirectCommandBufferSupportStateEnabled :
-																   MTL4IndirectCommandBufferSupportStateDisabled);
+			if (mtl_vs_entry) {
+				if (mtl_vs_entry->info->type != FUNCTION_TYPE::VERTEX) {
+					log_error("expected a vertex shader instead of $ ($) in pipeline \"$\"",
+							  mtl_vs_entry->info->type, mtl_vs_entry->info->name, pipeline_desc.debug_label);
+					return;
+				}
 			} else {
+				if (!mtl_ms_entry) {
+					log_error("expected either a vertex shader or a mesh shader in pipeline \"$\"",
+							  pipeline_desc_.debug_label);
+					return;
+				} else if (mtl_ms_entry->info->type != FUNCTION_TYPE::MESH) {
+					log_error("expected a mesh shader instead of $ ($) in pipeline \"$\"",
+							  mtl_ms_entry->info->type, mtl_ms_entry->info->name, pipeline_desc.debug_label);
+					return;
+				}
+				if (mtl_ts_entry && mtl_ts_entry->info->type != FUNCTION_TYPE::TASK) {
+					log_error("expected a task shader instead of $ ($) in pipeline \"$\"",
+							  mtl_ts_entry->info->type, mtl_ts_entry->info->name, pipeline_desc.debug_label);
+					return;
+				}
+			}
+			
+			const auto set_general_state = [this, &dev, &mtl_ms_entry](auto& mtl_pipeline_desc) {
+				mtl_pipeline_desc.options = [MTL4PipelineOptions new];
+				if (dump_reflection_info) {
+					// need to explicitly request reflections
+					mtl_pipeline_desc.options.shaderReflection = (MTL4ShaderReflectionBindingInfo |
+																  MTL4ShaderReflectionBufferTypeInfo);
+				}
+				
+				mtl_pipeline_desc.colorAttachmentMappingState = MTL4LogicalToPhysicalColorAttachmentMappingStateIdentity;
+				mtl_pipeline_desc.label = (pipeline_desc.debug_label.empty() ? @"metal_graphics_pipeline" :
+										   [NSString stringWithUTF8String:(pipeline_desc.debug_label).c_str()]);
+				
+				// NOTE: should always be true, even when no fragment shader is specified as documentation says (e.g. for vs-only shadow rendering)
 				mtl_pipeline_desc.supportIndirectCommandBuffers = MTL4IndirectCommandBufferSupportStateDisabled;
-			}
-			mtl_pipeline_desc.options.shaderValidation = (MTLShaderValidation)pipeline_desc.validation;
-			mtl_pipeline_desc.rasterSampleCount = math::max(pipeline_desc.sample_count, 1u);
-			mtl_pipeline_desc.supportVertexBinaryLinking = false;
-			mtl_pipeline_desc.supportFragmentBinaryLinking = false;
-			mtl_pipeline_desc.colorAttachmentMappingState = MTL4LogicalToPhysicalColorAttachmentMappingStateIdentity;
-			
-			// set color attachments
-			for (size_t i = 0, count = pipeline_desc.color_attachments.size(); i < count; ++i) {
-				const auto& color_att = pipeline_desc.color_attachments[i];
-				if (color_att.format == IMAGE_TYPE::NONE) {
-					log_error("color attachment image type must not be NONE!");
-					return;
+				if (pipeline_desc.options.support_indirect_rendering &&
+					!floor::get_metal_soft_indirect() &&
+					(!mtl_ms_entry || (mtl_ms_entry && ((const metal_device*)dev.get())->hardware_mesh_shading))) {
+					mtl_pipeline_desc.supportIndirectCommandBuffers = MTL4IndirectCommandBufferSupportStateEnabled;
 				}
 				
-				const auto metal_pixel_format = metal_context::pixel_format_from_image_type(color_att.format);
-				if (metal_pixel_format == MTLPixelFormatInvalid) {
-					log_error("no matching Metal pixel format found for color image type $X", color_att.format);
-					return;
-				}
-				mtl_pipeline_desc.colorAttachments[i].pixelFormat = metal_pixel_format;
+				mtl_pipeline_desc.options.shaderValidation = (MTLShaderValidation)pipeline_desc.validation;
+				mtl_pipeline_desc.rasterSampleCount = math::max(pipeline_desc.sample_count, 1u);
 				
-				// handle blending
-				if (color_att.blend.enable) {
-					mtl_pipeline_desc.colorAttachments[i].blendingState = MTL4BlendStateEnabled;
-					mtl_pipeline_desc.colorAttachments[i].sourceRGBBlendFactor = metal_blend_factor_from_blend_factor(color_att.blend.src_color_factor);
-					mtl_pipeline_desc.colorAttachments[i].sourceAlphaBlendFactor = metal_blend_factor_from_blend_factor(color_att.blend.src_alpha_factor);
-					mtl_pipeline_desc.colorAttachments[i].destinationRGBBlendFactor = metal_blend_factor_from_blend_factor(color_att.blend.dst_color_factor);
-					mtl_pipeline_desc.colorAttachments[i].destinationAlphaBlendFactor = metal_blend_factor_from_blend_factor(color_att.blend.dst_alpha_factor);
-					mtl_pipeline_desc.colorAttachments[i].rgbBlendOperation = metal_blend_op_from_blend_op(color_att.blend.color_blend_op);
-					mtl_pipeline_desc.colorAttachments[i].alphaBlendOperation = metal_blend_op_from_blend_op(color_att.blend.alpha_blend_op);
-					
-					if (!color_att.blend.write_mask.all()) {
-						// actually need to compute/set a mask when not everything is written
-						MTLColorWriteMask mask = MTLColorWriteMaskNone;
-						if (color_att.blend.write_mask.x) {
-							mask |= MTLColorWriteMaskRed;
-						}
-						if (color_att.blend.write_mask.y) {
-							mask |= MTLColorWriteMaskGreen;
-						}
-						if (color_att.blend.write_mask.z) {
-							mask |= MTLColorWriteMaskBlue;
-						}
-						if (color_att.blend.write_mask.w) {
-							mask |= MTLColorWriteMaskAlpha;
-						}
-						mtl_pipeline_desc.colorAttachments[i].writeMask = mask;
+				// set color attachments
+				for (size_t i = 0, count = pipeline_desc.color_attachments.size(); i < count; ++i) {
+					const auto& color_att = pipeline_desc.color_attachments[i];
+					if (color_att.format == IMAGE_TYPE::NONE) {
+						log_error("color attachment image type must not be NONE!");
+						return false;
 					}
-				} else {
-					mtl_pipeline_desc.colorAttachments[i].blendingState = MTL4BlendStateDisabled;
+					
+					const auto metal_pixel_format = metal_context::pixel_format_from_image_type(color_att.format);
+					if (metal_pixel_format == MTLPixelFormatInvalid) {
+						log_error("no matching Metal pixel format found for color image type $X", color_att.format);
+						return false;
+					}
+					mtl_pipeline_desc.colorAttachments[i].pixelFormat = metal_pixel_format;
+					
+					// handle blending
+					if (color_att.blend.enable) {
+						mtl_pipeline_desc.colorAttachments[i].blendingState = MTL4BlendStateEnabled;
+						mtl_pipeline_desc.colorAttachments[i].sourceRGBBlendFactor = metal_blend_factor_from_blend_factor(color_att.blend.src_color_factor);
+						mtl_pipeline_desc.colorAttachments[i].sourceAlphaBlendFactor = metal_blend_factor_from_blend_factor(color_att.blend.src_alpha_factor);
+						mtl_pipeline_desc.colorAttachments[i].destinationRGBBlendFactor = metal_blend_factor_from_blend_factor(color_att.blend.dst_color_factor);
+						mtl_pipeline_desc.colorAttachments[i].destinationAlphaBlendFactor = metal_blend_factor_from_blend_factor(color_att.blend.dst_alpha_factor);
+						mtl_pipeline_desc.colorAttachments[i].rgbBlendOperation = metal_blend_op_from_blend_op(color_att.blend.color_blend_op);
+						mtl_pipeline_desc.colorAttachments[i].alphaBlendOperation = metal_blend_op_from_blend_op(color_att.blend.alpha_blend_op);
+						
+						if (!color_att.blend.write_mask.all()) {
+							// actually need to compute/set a mask when not everything is written
+							MTLColorWriteMask mask = MTLColorWriteMaskNone;
+							if (color_att.blend.write_mask.x) {
+								mask |= MTLColorWriteMaskRed;
+							}
+							if (color_att.blend.write_mask.y) {
+								mask |= MTLColorWriteMaskGreen;
+							}
+							if (color_att.blend.write_mask.z) {
+								mask |= MTLColorWriteMaskBlue;
+							}
+							if (color_att.blend.write_mask.w) {
+								mask |= MTLColorWriteMaskAlpha;
+							}
+							mtl_pipeline_desc.colorAttachments[i].writeMask = mask;
+						}
+					} else {
+						mtl_pipeline_desc.colorAttachments[i].blendingState = MTL4BlendStateDisabled;
+					}
 				}
-			}
+				
+				// NOTE: it is no longer necessary/possible to set a depth attachment/format ahead of time,
+				//       but still check if the specified format is actually supported
+				if (pipeline_desc.depth_attachment.format != IMAGE_TYPE::NONE) {
+					const auto metal_pixel_format = metal_context::pixel_format_from_image_type(pipeline_desc.depth_attachment.format);
+					if (metal_pixel_format == MTLPixelFormatInvalid) {
+						log_error("no matching Metal pixel format found for depth image type $X", pipeline_desc.depth_attachment.format);
+						return false;
+					}
+				}
+				return true;
+			};
 			
-			// NOTE: it is no longer necessary/possible to set a depth attachment/format ahead of time,
-			//       but still check if the specified format is actually supported
-			if (pipeline_desc.depth_attachment.format != IMAGE_TYPE::NONE) {
-				const auto metal_pixel_format = metal_context::pixel_format_from_image_type(pipeline_desc.depth_attachment.format);
-				if (metal_pixel_format == MTLPixelFormatInvalid) {
-					log_error("no matching Metal pixel format found for depth image type $X", pipeline_desc.depth_attachment.format);
+			metal4_pipeline_entry entry;
+			NSError* err = nil;
+			if (mtl_vs_entry) {
+				MTL4RenderPipelineDescriptor* mtl_pipeline_desc = [MTL4RenderPipelineDescriptor new];
+				if (!set_general_state(mtl_pipeline_desc)) {
 					return;
 				}
-			}
-			
-			// set primitive type
-			MTLPrimitiveTopologyClass primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassUnspecified;
-			switch (pipeline_desc.primitive) {
-				case PRIMITIVE::POINT:
-					primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassPoint;
-					break;
-				case PRIMITIVE::LINE:
-				case PRIMITIVE::LINE_STRIP:
-					primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassLine;
-					break;
-				case PRIMITIVE::TRIANGLE:
-				case PRIMITIVE::TRIANGLE_STRIP:
-					primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassTriangle;
-					break;
-			}
-			mtl_pipeline_desc.inputPrimitiveTopology = primitive;
-			
-			// tessellation is no longer supported
-			if (pipeline_desc.tessellation.max_factor > 0u) {
-				log_error("tessellation is not supported by Metal 4");
-				return;
-			}
-			if (mtl_vs_entry->info->type != FUNCTION_TYPE::VERTEX) {
-				log_error("expected a vertex shader instead of $ ($) in pipeline \"$\"",
-						  mtl_vs_entry->info->type, mtl_vs_entry->info->name, pipeline_desc.debug_label);
-				return;
+				
+				mtl_pipeline_desc.vertexFunctionDescriptor = (mtl_vs_entry ? mtl_vs_entry->function_descriptor : nil);
+				mtl_pipeline_desc.fragmentFunctionDescriptor = (mtl_fs_entry ? mtl_fs_entry->function_descriptor : nil);
+				mtl_pipeline_desc.vertexDescriptor = nil;
+				mtl_pipeline_desc.supportVertexBinaryLinking = false;
+				mtl_pipeline_desc.supportFragmentBinaryLinking = false;
+				
+				// set primitive type
+				MTLPrimitiveTopologyClass primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassUnspecified;
+				switch (pipeline_desc.primitive) {
+					case PRIMITIVE::POINT:
+						primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassPoint;
+						break;
+					case PRIMITIVE::LINE:
+					case PRIMITIVE::LINE_STRIP:
+						primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassLine;
+						break;
+					case PRIMITIVE::TRIANGLE:
+					case PRIMITIVE::TRIANGLE_STRIP:
+						primitive = MTLPrimitiveTopologyClass::MTLPrimitiveTopologyClassTriangle;
+						break;
+				}
+				mtl_pipeline_desc.inputPrimitiveTopology = primitive;
+				
+				entry.vtx_pipeline_desc = mtl_pipeline_desc;
+			} else {
+				MTL4MeshRenderPipelineDescriptor* mtl_pipeline_desc = [MTL4MeshRenderPipelineDescriptor new];
+				if (!set_general_state(mtl_pipeline_desc)) {
+					return;
+				}
+				
+				mtl_pipeline_desc.objectFunctionDescriptor = (mtl_ts_entry ? mtl_ts_entry->function_descriptor : nil);
+				mtl_pipeline_desc.meshFunctionDescriptor = (mtl_ms_entry ? mtl_ms_entry->function_descriptor : nil);
+				mtl_pipeline_desc.fragmentFunctionDescriptor = (mtl_fs_entry ? mtl_fs_entry->function_descriptor : nil);
+				mtl_pipeline_desc.supportObjectBinaryLinking = false;
+				mtl_pipeline_desc.supportMeshBinaryLinking = false;
+				mtl_pipeline_desc.supportFragmentBinaryLinking = false;
+				
+				if (mtl_ts_entry && mtl_ts_entry->info->has_valid_required_local_size()) {
+					mtl_pipeline_desc.maxTotalThreadsPerObjectThreadgroup = mtl_ts_entry->info->required_local_size.extent();
+					mtl_pipeline_desc.requiredThreadsPerObjectThreadgroup = {
+						.width = mtl_ts_entry->info->required_local_size.x,
+						.height = mtl_ts_entry->info->required_local_size.y,
+						.depth = mtl_ts_entry->info->required_local_size.z,
+					};
+				}
+				if (mtl_ms_entry->info->has_valid_required_local_size()) {
+					mtl_pipeline_desc.maxTotalThreadsPerMeshThreadgroup = mtl_ms_entry->info->required_local_size.extent();
+					mtl_pipeline_desc.requiredThreadsPerMeshThreadgroup = {
+						.width = mtl_ms_entry->info->required_local_size.x,
+						.height = mtl_ms_entry->info->required_local_size.y,
+						.depth = mtl_ms_entry->info->required_local_size.z,
+					};
+				}
+				
+				mtl_pipeline_desc.objectThreadgroupSizeIsMultipleOfThreadExecutionWidth = true;
+				mtl_pipeline_desc.meshThreadgroupSizeIsMultipleOfThreadExecutionWidth = true;
+				
+				if (mtl_ts_entry && mtl_ts_entry->info->has_valid_mesh_max_work_groups()) {
+					mtl_pipeline_desc.maxTotalThreadgroupsPerMeshGrid = mtl_ts_entry->info->mesh_max_work_groups;
+				} else {
+					// automatically determine this (or assume max)
+					mtl_pipeline_desc.maxTotalThreadgroupsPerMeshGrid = 0;
+				}
+				mtl_pipeline_desc.payloadMemoryLength = 0; // automatically determine this
+				
+				entry.mesh_pipeline_desc = mtl_pipeline_desc;
 			}
 			
 			// finally create the pipeline object
-			metal4_pipeline_entry entry;
-			NSError* err = nil;
 			id <MTL4Compiler> compiler = metal4_program::get_compiler(*dev);
-			if (dump_reflection_info) {
-				// need to explicitly request reflections
-				mtl_pipeline_desc.options.shaderReflection = (MTL4ShaderReflectionBindingInfo |
-															  MTL4ShaderReflectionBufferTypeInfo);
-			}
-			entry.pipeline_state = [compiler newRenderPipelineStateWithDescriptor:mtl_pipeline_desc
+			entry.pipeline_state = [compiler newRenderPipelineStateWithDescriptor:(entry.vtx_pipeline_desc ?
+																				   entry.vtx_pipeline_desc : entry.mesh_pipeline_desc)
 															  compilerTaskOptions:nil
 																			error:&err];
 			if (!entry.pipeline_state || err) {
-				log_error("failed to create pipeline state for device $: $", dev->name,
+				log_error("failed to create pipeline state \"$\" for device $: $", pipeline_desc.debug_label, dev->name,
 						  (err != nil ? [[err localizedDescription] UTF8String] : "<no-error-msg>"));
 				return;
 			}
 			
 			if (dump_reflection_info && [entry.pipeline_state reflection]) {
-				metal_program::dump_bindings_reflection("vertex shader \"" + mtl_vs_entry->info->name + "\"",
-														[[entry.pipeline_state reflection] vertexBindings]);
+				if (mtl_vs_entry) {
+					metal_program::dump_bindings_reflection("vertex shader \"" + mtl_vs_entry->info->name + "\"",
+															[[entry.pipeline_state reflection] vertexBindings]);
+				}
 				if (mtl_fs_entry) {
-					metal_program::dump_bindings_reflection("fragment shader \"" + mtl_vs_entry->info->name + "\"",
+					metal_program::dump_bindings_reflection("fragment shader \"" + mtl_fs_entry->info->name + "\"",
 															[[entry.pipeline_state reflection] fragmentBindings]);
+				}
+				if (mtl_ts_entry) {
+					metal_program::dump_bindings_reflection("task shader \"" + mtl_ts_entry->info->name + "\"",
+															[[entry.pipeline_state reflection] objectBindings]);
+				}
+				if (mtl_ms_entry) {
+					metal_program::dump_bindings_reflection("mesh shader \"" + mtl_ms_entry->info->name + "\"",
+															[[entry.pipeline_state reflection] meshBindings]);
 				}
 			}
 			
 			entry.vs_entry = mtl_vs_entry;
 			entry.fs_entry = mtl_fs_entry;
-			entry.pipeline_desc = mtl_pipeline_desc;
+			entry.ts_entry = mtl_ts_entry;
+			entry.ms_entry = mtl_ms_entry;
 			
 			// create depth/stencil state
 			auto depth_stencil_desc = [MTLDepthStencilDescriptor new];

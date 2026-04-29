@@ -20,6 +20,8 @@
 
 #if defined(FLOOR_GRAPHICS_HOST_COMPUTE)
 
+#include <cassert>
+
 namespace fl {
 
 // NOTE: not supported
@@ -82,6 +84,82 @@ floor_inline_always __attribute__((const)) std::pair<float3, float3> dfdx_dfdy_g
 floor_inline_always __attribute__((const)) uint32_t get_patch_id() { return 0u; }
 // NOTE: not supported
 floor_inline_always __attribute__((const)) float3 get_position_in_patch() { return {}; }
+
+//////////////////////////////////////////
+// task/mesh shader
+
+#if FLOOR_DEVICE_INFO_MESH_SHADING_SUPPORT
+
+template <typename vertex_type, typename primitive_type,
+		  uint32_t max_vertex_count, uint32_t max_primitive_count,
+		  MESH_TOPOLOGY topology = MESH_TOPOLOGY::TRIANGLE>
+#if defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
+requires (__libfloor_is_valid_mesh_vertex_type(vertex_type) && __libfloor_is_valid_mesh_primitive_type(primitive_type))
+#endif
+struct mesh {
+	static constexpr const bool is_void_primitive = std::is_same_v<primitive_type, void>;
+	
+	//! mesh output type / fragment stage input type
+	using output_type = mesh_output_type<vertex_type, primitive_type>;
+	
+	//! sets the actual output sizes (primitive count and vertex count),
+	//! the vertex count defaults to the max specified vertex count of the mesh (max_vertex_count)
+	void set_output_size([[maybe_unused]] const uint32_t primitive_count, [[maybe_unused]] const uint32_t vertex_count = ~0u) const {
+		assert(primitive_count <= max_primitive_count);
+		assert(vertex_count == ~0u || vertex_count <= max_primitive_count);
+	}
+	
+	//! sets the single "index" of a point for the primitive at index "primitive_idx"
+	void set_index([[maybe_unused]] const uint32_t primitive_idx,
+				   [[maybe_unused]] const uint8_t index) const requires(topology == MESH_TOPOLOGY::POINT) {
+		// nop
+	}
+	
+	//! sets the two "indices" of a line for the primitive at index "primitive_idx"
+	void set_indices([[maybe_unused]] const uint32_t primitive_idx,
+					 [[maybe_unused]] const uchar2 indices) const requires(topology == MESH_TOPOLOGY::LINE) {
+		// nop
+	}
+	
+	//! sets the three "indices" of a triangle for the primitive at index "primitive_idx"
+	void set_indices([[maybe_unused]] const uint32_t primitive_idx,
+					 [[maybe_unused]] const uchar3 indices) const requires(topology == MESH_TOPOLOGY::TRIANGLE) {
+		// nop
+	}
+	
+	void set_vertex([[maybe_unused]] const uint32_t output_position,
+					[[maybe_unused]] vertex_type vert) const {
+		// nop
+	}
+	
+	void set_primitive([[maybe_unused]] const uint32_t output_position,
+					   [[maybe_unused]] std::conditional_t<!is_void_primitive, primitive_type, int> prim) const requires(!is_void_primitive) {
+		// nop
+	}
+	
+protected:
+#if defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
+	__mesh_t mesh;
+#else
+	void* mesh { nullptr };
+#endif
+	
+};
+
+struct mesh_grid_properties {
+	void emit_tasks([[maybe_unused]] const uint3 work_groups) const {
+		// nop
+	}
+	
+protected:
+#if defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
+	__mesh_grid_properties_t props;
+#else
+	void* props { nullptr };
+#endif
+};
+
+#endif
 
 } // namespace fl
 

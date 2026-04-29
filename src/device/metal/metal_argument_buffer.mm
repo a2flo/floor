@@ -102,6 +102,12 @@ void metal_argument_buffer::make_resident(id <MTLRenderCommandEncoder> enc, cons
 		case toolchain::FUNCTION_TYPE::FRAGMENT:
 			stages = MTLRenderStageFragment;
 			break;
+		case toolchain::FUNCTION_TYPE::TASK:
+			stages = MTLRenderStageObject;
+			break;
+		case toolchain::FUNCTION_TYPE::MESH:
+			stages = MTLRenderStageMesh;
+			break;
 		case toolchain::FUNCTION_TYPE::NONE:
 		case toolchain::FUNCTION_TYPE::KERNEL:
 		case toolchain::FUNCTION_TYPE::TESSELLATION_CONTROL:

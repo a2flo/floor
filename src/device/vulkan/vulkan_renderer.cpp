@@ -63,6 +63,7 @@ struct vulkan_renderer_internal {
 	std::unique_ptr<vulkan_drawable_t> cur_drawable;
 	VkViewport cur_viewport {};
 	VkRect2D cur_render_area {};
+	VkCullModeFlags cur_cull_mode {};
 	
 	template <template <typename...> class smart_ptr_type, typename renderer_type>
 	static bool commit_and_release_internal(smart_ptr_type<renderer_type>&& renderer, graphics_renderer::completion_handler_f&& compl_handler) {
@@ -309,6 +310,10 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 		internal->cur_render_area.extent.height = clamped_height - uint32_t(internal->cur_render_area.offset.y);
 	}
 	vkCmdSetScissor(render_cmd_buffer.cmd_buffer, 0, 1, &internal->cur_render_area);
+	
+	if (is_dynamic_cull_state) {
+		internal->cur_cull_mode = vulkan_cull_mode_from_cull_mode(pipeline_desc.cull_mode);
+	}
 	
 	const auto& pass_clear_values = vk_pass.get_vulkan_clear_values(multi_view);
 	const auto needs_clear = vk_pass.needs_clear();
@@ -581,7 +586,9 @@ void vulkan_renderer::execute_indirect(const indirect_command_pipeline& indirect
 	}
 	
 #if defined(FLOOR_DEBUG)
-	if (indirect_cmd.get_description().command_type != indirect_command_description::COMMAND_TYPE::RENDER) {
+	if (const auto cmd_type = indirect_cmd.get_description().command_type;
+		cmd_type != indirect_command_description::COMMAND_TYPE::RENDER &&
+		cmd_type != indirect_command_description::COMMAND_TYPE::RENDER_MESH) {
 		log_error("specified indirect command pipeline \"$\" must be a render pipeline",
 				  indirect_cmd.get_description().debug_label);
 		return;
@@ -663,9 +670,12 @@ void vulkan_renderer::draw_internal(const std::span<const multi_draw_entry> draw
 		VK_CALL_RET(vkBeginCommandBuffer(sec_cmd_buffer.cmd_buffer, &begin_info),
 					"failed to begin command buffer for direct rendering within an indirect renderer")
 		
-		// need to set viewport + scissor again for this cmd buffer
+		// need to set dynamic state again for this cmd buffer
 		vkCmdSetViewport(sec_cmd_buffer.cmd_buffer, 0, 1, &internal->cur_viewport);
 		vkCmdSetScissor(sec_cmd_buffer.cmd_buffer, 0, 1, &internal->cur_render_area);
+		if (is_dynamic_cull_state) {
+			vkCmdSetCullMode(sec_cmd_buffer.cmd_buffer, internal->cur_cull_mode);
+		}
 	}
 	
 	const auto vs = (const vulkan_shader*)cur_pipeline->get_description(multi_view).vertex_shader;
@@ -693,6 +703,11 @@ void vulkan_renderer::draw_patches_internal(const patch_draw_entry* draw_entry f
 	throw std::runtime_error("tessellation is not implemented in Vulkan");
 }
 
+void vulkan_renderer::draw_mesh_internal(const mesh_draw_entry&,
+										 const std::vector<device_function_arg>&) {
+	throw std::runtime_error("mesh shading is not implemented yet in Vulkan");
+}
+
 void vulkan_renderer::wait_for_fence(const device_fence& fence, const SYNC_STAGE before_stage) {
 	const auto& vk_fence = (const vulkan_fence&)fence;
 	wait_fences.emplace_back(vulkan_queue::wait_fence_t {
@@ -713,6 +728,11 @@ void vulkan_renderer::signal_fence(device_fence& fence, const SYNC_STAGE after_s
 		.signaled_value = vk_fence.get_signaled_value(),
 		.stage = after_stage,
 	});
+}
+
+void vulkan_renderer::switch_cull_mode(const CULL_MODE new_cull_mode) {
+	internal->cur_cull_mode = vulkan_cull_mode_from_cull_mode(new_cull_mode);
+	vkCmdSetCullMode(render_cmd_buffer.cmd_buffer, internal->cur_cull_mode);
 }
 
 } // namespace fl

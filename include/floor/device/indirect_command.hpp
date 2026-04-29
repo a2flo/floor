@@ -38,8 +38,12 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 struct indirect_command_description {
 	//! allowed command type
 	enum class COMMAND_TYPE {
+		//! pipeline that only allows kernel executions
 		COMPUTE,
+		//! pipeline that only allows vertex/fragment shader executions
 		RENDER,
+		//! pipeline that allows both vertex/fragment and task/mesh/fragment shader executions
+		RENDER_MESH,
 	};
 	//! specifies the type of commands that may be encoded
 	//! NOTE: compute and render commands can not be encoded in the same indirect command pipeline
@@ -55,6 +59,12 @@ struct indirect_command_description {
 	
 	//! the max amount of buffers that can be set/used in a vertex function that is encoded by a render command
 	uint32_t max_vertex_buffer_count { 0u };
+	
+	//! the max amount of buffers that can be set/used in a task function that is encoded by a render command
+	uint32_t max_task_buffer_count { 0u };
+	
+	//! the max amount of buffers that can be set/used in a mesh function that is encoded by a render command
+	uint32_t max_mesh_buffer_count { 0u };
 	
 	//! the max amount of buffers that can be set/used in a fragment function that is encoded by a render command
 	uint32_t max_fragment_buffer_count { 0u };
@@ -126,7 +136,7 @@ class indirect_command_encoder {
 protected:
 	//! checks if an individual argument type is valid
 	//! NOTE: may be any of:
-	//!  * device_buffer*, argument_buffer*, or derived
+	//!  * device_buffer*/&, argument_buffer*/&, or derived
 	//!  * std::unique_ptr<device_buffer>, std::unique_ptr<argument_buffer>, or derived
 	//!  * std::shared_ptr<device_buffer>, std::shared_ptr<argument_buffer>, or derived
 	template <typename T>
@@ -135,6 +145,10 @@ protected:
 		if constexpr (std::is_pointer_v<decayed_type> &&
 					  (std::is_base_of_v<device_buffer, std::remove_pointer_t<decayed_type>> ||
 					   std::is_base_of_v<argument_buffer, std::remove_pointer_t<decayed_type>>)) {
+			return true;
+		} else if constexpr (std::is_reference_v<T> &&
+							 (std::is_base_of_v<device_buffer, std::remove_reference_t<decayed_type>> ||
+							  std::is_base_of_v<argument_buffer, std::remove_reference_t<decayed_type>>)) {
 			return true;
 		} else if constexpr (ext::is_shared_ptr_v<decayed_type> || ext::is_unique_ptr_v<decayed_type>) {
 			using pointee_type = typename decayed_type::element_type;
@@ -184,7 +198,8 @@ protected:
 class indirect_render_command_encoder : public indirect_command_encoder {
 public:
 	//! NOTE: device and graphics_pipeline must be valid for the lifetime of the parent indirect_command_pipeline
-	indirect_render_command_encoder(const device& dev_, const graphics_pipeline& pipeline_, const bool is_multi_view_);
+	indirect_render_command_encoder(const device& dev_, const graphics_pipeline& pipeline_,
+									const bool is_multi_view_, const bool is_mesh_shading_);
 	~indirect_render_command_encoder() override = default;
 	
 	//! encode a simple draw call using the specified parameters
@@ -226,25 +241,57 @@ public:
 																  const uint32_t instance_count = 1u,
 																  const uint32_t first_instance = 0u) = 0;
 	
+	//! encode a mesh shading draw call using the specified parameters
+	virtual indirect_render_command_encoder& draw_mesh(const uint3 work_group_count,
+													   const uint3 local_work_size_task,
+													   const uint3 local_work_size_mesh) = 0;
+	
 	//! sets/encodes the specified arguments in this command
 	//! NOTE: vertex shader arguments are specified first, fragment shader arguments after
 	//! NOTE: it is only allowed to encode/use buffer-type parameters, i.e. no images or const-parameters are allowed
 	//!       -> only use buffer<T> and arg_buffer<T> parameters in vertex/fragment/kernel functions
 	template <typename... Args>
-	indirect_render_command_encoder& set_arguments(const Args&... args)
+	indirect_render_command_encoder& set_arguments(Args&&... args)
 	__attribute__((enable_if(indirect_command_encoder::check_arg_types<Args...>(), "valid args"))) {
-		set_arguments_vector({ args... });
+		set_arguments_vector({ std::forward<Args>(args)... });
 		return *this;
 	}
 	
 	//! sets/encodes the specified arguments in this command
 	template <typename... Args>
-	indirect_render_command_encoder& set_arguments(const Args&...)
+	indirect_render_command_encoder& set_arguments(Args&&...)
 	__attribute__((enable_if(!indirect_command_encoder::check_arg_types<Args...>(), "invalid args"), unavailable("invalid argument(s)!")));
 	
 protected:
 	const graphics_pipeline& pipeline;
 	const bool is_multi_view { false };
+	
+	//! signals that mesh shading *may* be used in this render encoder
+	const bool is_mesh_shading { false };
+	
+	//! check if the specified shader combinations are valid and the device supports them, throws if invalid
+	void validate_shader_combinations(const device& dev_, const bool has_vs, const bool has_ts, const bool has_ms) {
+		if (has_ts && !has_ms) {
+			throw std::runtime_error("a task shader but no mesh shader is present in the graphics pipeline entry for device " + dev_.name);
+		}
+		if (!has_vs && !has_ms) {
+			throw std::runtime_error("either a vertex shader or a mesh shader must be present in graphics pipeline entry for device " +
+									 dev_.name);
+		}
+		if (has_vs && has_ms) {
+			throw std::runtime_error("both a vertex shader and a mesh shader are present in graphics pipeline entry for device " + dev_.name);
+		}
+		
+		if (has_ms && !dev_.mesh_shading_support) {
+			throw std::runtime_error("a mesh shader is present in the graphics pipeline entry for device " + dev_.name +
+									 ", but the device has no support for mesh shading");
+		}
+		
+		if (has_ms && !is_mesh_shading) {
+			throw std::runtime_error("indirect pipeline has no support for mesh shading, but a mesh shader is specified in the "
+									 "graphics pipeline for device " + dev_.name);
+		}
+	}
 };
 
 //! encoder for encoding compute commands in an indirect command pipeline
@@ -256,22 +303,22 @@ public:
 	
 	//! encode a 1D kernel execution using the specified parameters
 	//! NOTE: returns *this to enable subsequent set_arguments()
-	indirect_compute_command_encoder& execute(const uint32_t& global_work_size,
-											  const uint32_t& local_work_size) {
+	indirect_compute_command_encoder& execute(const uint32_t global_work_size,
+											  const uint32_t local_work_size) {
 		return execute(1u, uint3 { global_work_size, 1u, 1u }, uint3 { local_work_size, 1u, 1u });
 	}
 	
 	//! encode a 2D kernel execution using the specified parameters
 	//! NOTE: returns *this to enable subsequent set_arguments()
-	indirect_compute_command_encoder& execute(const uint2& global_work_size,
-											  const uint2& local_work_size) {
+	indirect_compute_command_encoder& execute(const uint2 global_work_size,
+											  const uint2 local_work_size) {
 		return execute(2u, uint3 { global_work_size.x, global_work_size.y, 1u }, uint3 { local_work_size.x, local_work_size.y, 1u });
 	}
 	
 	//! encode a 3D kernel execution using the specified parameters
 	//! NOTE: returns *this to enable subsequent set_arguments()
-	indirect_compute_command_encoder& execute(const uint3& global_work_size,
-											  const uint3& local_work_size) {
+	indirect_compute_command_encoder& execute(const uint3 global_work_size,
+											  const uint3 local_work_size) {
 		return execute(3u, global_work_size, local_work_size);
 	}
 	
@@ -283,15 +330,15 @@ public:
 	//! NOTE: it is only allowed to encode/use buffer-type parameters, i.e. no images or const-parameters are allowed
 	//!       -> only use buffer<T> and arg_buffer<T> parameters in vertex/fragment/kernel functions
 	template <typename... Args>
-	indirect_compute_command_encoder& set_arguments(const Args&... args)
+	indirect_compute_command_encoder& set_arguments(Args&&... args)
 	__attribute__((enable_if(indirect_command_encoder::check_arg_types<Args...>(), "valid args"))) {
-		set_arguments_vector({ args... });
+		set_arguments_vector({ std::forward<Args>(args)... });
 		return *this;
 	}
 	
 	//! sets/encodes the specified arguments in this command
 	template <typename... Args>
-	indirect_compute_command_encoder& set_arguments(const Args&...)
+	indirect_compute_command_encoder& set_arguments(Args&&...)
 	__attribute__((enable_if(!indirect_command_encoder::check_arg_types<Args...>(), "invalid args"), unavailable("invalid argument(s)!")));
 	
 protected:
@@ -299,8 +346,8 @@ protected:
 	const device_function::function_entry* entry { nullptr };
 	
 	virtual indirect_compute_command_encoder& execute(const uint32_t dim,
-													  const uint3& global_work_size,
-													  const uint3& local_work_size) = 0;
+													  const uint3 global_work_size,
+													  const uint3 local_work_size) = 0;
 	
 };
 

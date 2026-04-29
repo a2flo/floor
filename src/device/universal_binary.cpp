@@ -435,11 +435,12 @@ namespace fl::universal_binary {
 				mtl_dev.platform_vendor = VENDOR::APPLE;
 				mtl_dev.double_support = false; // always disabled for now
 				mtl_dev.barycentric_coord_support = mtl_target.barycentric_coord_support;
+				mtl_dev.mesh_shading_support = mtl_target.mesh_shading_support;
 				
 				// overwrite device/metal_device defaults
 				if (mtl_dev.metal_language_version < METAL_VERSION::METAL_4_0) {
-					dev->tessellation_support = true;
-					dev->max_tessellation_factor = 64u;
+					mtl_dev.tessellation_support = true;
+					mtl_dev.max_tessellation_factor = 64u;
 				}
 				if (mtl_target.platform_target == decltype(mtl_target.platform_target)::IOS ||
 					mtl_target.platform_target == decltype(mtl_target.platform_target)::IOS_SIMULATOR) {
@@ -568,6 +569,7 @@ namespace fl::universal_binary {
 				vlk_dev.max_tessellation_factor = (vlk_dev.tessellation_support ? 64u : 0u);
 				vlk_dev.subgroup_uniform_cf_support = vlk_target.subgroup_uniform_cf_support;
 				vlk_dev.untyped_pointers_support = vlk_target.untyped_pointers_support;
+				vlk_dev.mesh_shading_support = vlk_target.mesh_shading_support;
 				vlk_dev.max_mip_levels = vlk_dev.max_mip_levels;
 				vlk_dev.argument_buffer_support = true;
 				vlk_dev.argument_buffer_image_support = true;
@@ -1633,6 +1635,12 @@ namespace fl::universal_binary {
 					.image_type = arg.image_type,
 					.flags = arg.flags,
 				});
+				
+				// TODO: in the future, this should be a function field itself
+				if (entry.type == toolchain::FUNCTION_TYPE::TASK &&
+					has_flag<toolchain::ARG_FLAG::MESH_GRID_PROPERTIES>(arg.flags)) {
+					entry.mesh_max_work_groups = (uint32_t)arg.size;
+				}
 			}
 			
 			if (entry.type != toolchain::FUNCTION_TYPE::ARGUMENT_BUFFER_STRUCT) {

@@ -52,7 +52,7 @@ constexpr size_t printf_args_total_size() {
 }
 
 // dummy function needed to expand #Args... function calls
-template <typename... Args> floor_inline_always constexpr static void printf_args_apply(const Args&...) {}
+template <typename... Args> floor_inline_always constexpr static void printf_args_apply(Args&&...) {}
 
 ////////////////////////////////////////////////////////////////////////////////
 // no address-space version (CUDA)
@@ -147,7 +147,7 @@ template <typename T> floor_inline_always static int printf_handle_arg(global ui
 
 // actual printf implementation
 template <size_t format_N, typename... Args>
-static void printf_impl(constant const char (&format)[format_N], const Args&... args) {
+static void printf_impl(constant const char (&format)[format_N], Args&&... args) {
 	// NOTE: we only support 32-bit args/values right now, so args size is always 4 bytes * #args
 	static constexpr const auto args_size = sizeof...(args) * sizeof(uint32_t);
 	
@@ -199,7 +199,7 @@ static void printf_impl(constant const char (&format)[format_N], const Args&... 
 	
 	if constexpr (sizeof...(args) > 0) {
 		auto dst_ptr = dst_printf_buf + 1 /* entry header */ + (round_to_4(format_N) / 4u);
-		soft_printf::printf_args_apply(soft_printf::as::printf_handle_arg(dst_ptr, args)...);
+		soft_printf::printf_args_apply(soft_printf::as::printf_handle_arg(dst_ptr, std::forward<Args>(args))...);
 	}
 }
 

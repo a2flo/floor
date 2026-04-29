@@ -95,6 +95,57 @@ void metal_shader::set_shader_arguments(const device_queue& cqueue,
 	}
 }
 
+void metal_shader::set_shader_arguments(const device_queue& cqueue,
+										id <MTLRenderCommandEncoder> encoder,
+										id <MTLCommandBuffer> cmd_buffer,
+										const metal_function_entry* task_shader,
+										const metal_function_entry* mesh_shader,
+										const metal_function_entry* fragment_shader,
+										const std::vector<device_function_arg>& args) const {
+	@autoreleasepool {
+		const auto dev = &cqueue.get_device();
+		const auto ctx = (const metal_context*)dev->context;
+		
+		// create implicit args
+		std::vector<device_function_arg> implicit_args;
+		
+		// create + init printf buffers if soft-printf is used
+		std::vector<std::pair<device_buffer*, uint32_t>> printf_buffer_rsrcs;
+		const auto is_ts_soft_printf = (task_shader != nullptr && has_flag<FUNCTION_FLAGS::USES_SOFT_PRINTF>(task_shader->info->flags));
+		const auto is_ms_soft_printf = (mesh_shader != nullptr && has_flag<FUNCTION_FLAGS::USES_SOFT_PRINTF>(mesh_shader->info->flags));
+		const auto is_fs_soft_printf = (fragment_shader != nullptr && has_flag<FUNCTION_FLAGS::USES_SOFT_PRINTF>(fragment_shader->info->flags));
+		if (is_ts_soft_printf || is_ms_soft_printf || is_fs_soft_printf) {
+			const uint32_t printf_buffer_count = (is_ts_soft_printf ? 1u : 0u) + (is_ms_soft_printf ? 1u : 0u) + (is_fs_soft_printf ? 1u : 0u);
+			for (uint32_t i = 0; i < printf_buffer_count; ++i) {
+				auto rsrc = ctx->acquire_soft_printf_buffer(*dev);
+				initialize_printf_buffer(cqueue, *rsrc.first);
+				implicit_args.emplace_back(rsrc.first);
+				printf_buffer_rsrcs.emplace_back(std::move(rsrc));
+			}
+		}
+		
+		// set and handle function arguments
+		metal_args::set_and_handle_arguments<metal_args::ENCODER_TYPE::SHADER>(cqueue.get_device(), encoder, {
+			(task_shader ? task_shader->info : nullptr),
+			(mesh_shader ? mesh_shader->info : nullptr),
+			(fragment_shader ? fragment_shader->info : nullptr),
+		}, args, implicit_args);
+		
+		// add completion handler to evaluate printf buffers on completion
+		if (is_ts_soft_printf || is_ms_soft_printf || is_fs_soft_printf) {
+			auto internal_dev_queue = ((const metal_context&)cqueue.get_context()).get_device_default_queue(cqueue.get_device());
+			[cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer>) {
+				for (const auto& printf_buffer_rsrc : printf_buffer_rsrcs) {
+					auto cpu_printf_buffer = std::make_unique<uint32_t[]>(printf_buffer_size / 4);
+					printf_buffer_rsrc.first->read(*internal_dev_queue, cpu_printf_buffer.get());
+					handle_printf_buffer(std::span { cpu_printf_buffer.get(), printf_buffer_size / 4 });
+					ctx->release_soft_printf_buffer(*dev, printf_buffer_rsrc);
+				}
+			}];
+		}
+	}
+}
+
 void metal_shader::draw(id <MTLRenderCommandEncoder> encoder, const PRIMITIVE& primitive,
 						const std::span<const graphics_renderer::multi_draw_entry> draw_entries) const {
 	const auto mtl_primitve = metal_pipeline::metal_primitive_type_from_primitive(primitive);
@@ -123,6 +174,15 @@ void metal_shader::draw(id <MTLRenderCommandEncoder> encoder, const PRIMITIVE& p
 								baseVertex:entry.vertex_offset
 							  baseInstance:entry.first_instance];
 		}
+	}
+}
+
+void metal_shader::draw(id <MTLRenderCommandEncoder> encoder,
+						const graphics_renderer::mesh_draw_entry& draw_entry) const {
+	@autoreleasepool {
+		[encoder drawMeshThreadgroups:MTLSize { draw_entry.work_group_count.x, draw_entry.work_group_count.y, draw_entry.work_group_count.z }
+		  threadsPerObjectThreadgroup:MTLSize { draw_entry.local_work_size_task.x, draw_entry.local_work_size_task.y, draw_entry.local_work_size_task.z }
+			threadsPerMeshThreadgroup:MTLSize { draw_entry.local_work_size_mesh.x, draw_entry.local_work_size_mesh.y, draw_entry.local_work_size_mesh.z }];
 	}
 }
 
