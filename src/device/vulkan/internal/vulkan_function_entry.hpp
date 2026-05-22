@@ -22,6 +22,7 @@
 
 #if !defined(FLOOR_NO_VULKAN)
 #include <floor/device/device_function.hpp>
+#include <floor/threading/resource_slot_handler.hpp>
 
 namespace fl {
 
@@ -37,16 +38,20 @@ struct vulkan_function_entry : device_function::function_entry {
 		std::vector<VkDeviceSize> argument_offsets;
 		std::unique_ptr<vulkan_descriptor_buffer_container> desc_buffer_container;
 		//! for internal (clean up) use only
-		std::array<std::pair<device_buffer*, void*>, vulkan_descriptor_buffer_container::descriptor_count> desc_buffer_ptrs {};
+		std::array<std::pair<device_buffer*, void*>, vulkan_descriptor_buffer_container::instance_count> desc_buffer_ptrs {};
 	} desc_buffer;
 	
 	//! buffers/storage for constant data
-	//! NOTE: must be the same amount as the number of descriptors in "desc_set_container"
-	std::array<std::shared_ptr<device_buffer>, vulkan_descriptor_buffer_container::descriptor_count> constant_buffers_storage;
-	std::array<void*, vulkan_descriptor_buffer_container::descriptor_count> constant_buffer_mappings;
-	std::unique_ptr<safe_resource_container<device_buffer*, vulkan_descriptor_buffer_container::descriptor_count>> constant_buffers;
+	//! NOTE: must be the same amount as the number of instances in "desc_set_container"
+	std::array<std::shared_ptr<device_buffer>, vulkan_descriptor_buffer_container::instance_count> constant_buffers_storage;
+	std::array<void*, vulkan_descriptor_buffer_container::instance_count> constant_buffer_mappings;
+	resource_slot_container<device_buffer*, vulkan_descriptor_buffer_container::instance_count> constant_buffers;
 	//! argument index -> constant buffer info
 	fl::flat_map<uint32_t, vulkan_constant_buffer_info_t> constant_buffer_info;
+	
+	bool has_constant_buffers() const {
+		return !constant_buffer_info.empty();
+	}
 	
 	//! argument buffer data
 	struct argument_buffer_t {

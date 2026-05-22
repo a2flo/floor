@@ -846,6 +846,7 @@ enable_renderer(enable_renderer_) {
 			"VK_KHR_device_fault",
 			"VK_KHR_shader_abort",
 			"VK_KHR_shader_constant_data",
+			"VK_KHR_opacity_micromap",
 			// these are not needed and interfere with Nsight
 			"VK_KHR_pipeline_binary",
 			"VK_KHR_pipeline_library",
@@ -964,13 +965,6 @@ enable_renderer(enable_renderer_) {
 				continue;
 			}
 			
-#if 0 // AMDVLK doesn't support this yet in 2025 ...
-			if (!device_supported_extensions_set.contains(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) {
-				log_error("$ extension is not supported by the device", VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
-				continue;
-			}
-			device_extensions_set.emplace(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
-#else
 			// prefer KHR over EXT
 			if (device_supported_extensions_set.contains(VK_KHR_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)) {
 				device_extensions_set.emplace(VK_KHR_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
@@ -985,7 +979,6 @@ enable_renderer(enable_renderer_) {
 					device_extensions_set.emplace(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
 				}
 			}
-#endif
 		} else {
 			if (swapchain_ext_iter != device_extensions_set.end()) {
 				// remove again, since we don't want/need it
@@ -2284,6 +2277,13 @@ enable_renderer(enable_renderer_) {
 		
 		device.mesh_shading_support = mesh_shading_support;
 		device.mesh_shading_multi_view_support = mesh_shading_multi_view_support;
+		
+		device.pipeline_stage_all_graphics = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
+		device.shader_stage_all_graphics = VK_SHADER_STAGE_ALL_GRAPHICS;
+		if (mesh_shading_support) {
+			device.pipeline_stage_all_graphics |= VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT;
+			device.shader_stage_all_graphics |= VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT;
+		}
 		
 		// check host image copy support (via extension or core)
 		if ((device_vulkan_version >= VULKAN_VERSION::VULKAN_1_4 ?

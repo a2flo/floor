@@ -71,6 +71,7 @@ struct VkBufferImageCopy2;
 struct VkInstanceCreateInfo;
 struct VkDeviceCreateInfo;
 
+using VkFlags = uint32_t;
 using VkFlags64 = uint64_t;
 using VkBufferUsageFlags2 = VkFlags64;
 using VkAccessFlags2 = VkFlags64;

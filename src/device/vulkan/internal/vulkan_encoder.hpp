@@ -32,16 +32,13 @@ struct vulkan_encoder {
 	const vulkan_device& dev;
 	const VkPipeline pipeline { nullptr };
 	const VkPipelineLayout pipeline_layout { nullptr };
-	const std::vector<const vulkan_function_entry*> entries;
+	const std::vector<vulkan_function_entry*> entries;
 	std::vector<descriptor_buffer_instance_t> acquired_descriptor_buffers;
 	std::vector<std::pair<uint32_t /* entry idx */, const vulkan_buffer*>> argument_buffers;
-	std::vector<std::pair<device_buffer*, uint32_t>> acquired_constant_buffers;
+	std::vector<std::pair<device_buffer*, uint8_t>> acquired_constant_buffers;
 	std::vector<void*> constant_buffer_mappings;
-	std::vector<std::unique_ptr<VkDescriptorBufferInfo>> constant_buffer_desc_info;
 	//! for easier access later on: wrap constant buffer info (size must be == size of entries)
 	std::vector<vulkan_args::constant_buffer_wrapper_t> constant_buffer_wrappers;
-	//! NOTE: this is created automatically right before setting/handling all args
-	std::vector<const vulkan_args::constant_buffer_wrapper_t*> constant_buffer_wrappers_ptr;
 	
 #if defined(FLOOR_DEBUG)
 	std::string debug_label;

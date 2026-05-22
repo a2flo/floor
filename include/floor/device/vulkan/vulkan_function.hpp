@@ -63,6 +63,7 @@ public:
 				 kernel_completion_handler_f&& completion_handler) const override;
 	
 	const function_entry* get_function_entry(const device& dev) const override;
+	vulkan_function_entry* get_mutable_function_entry(const device& dev) const;
 	
 	//! NOTE: if "simd_width" is empty, the required SIMD width or default device SIMD width will be used
 	//! NOTE: if "simd_width" is not empty and a required SIMD width is set and the specified SIMD width doesn't match, this returns nullptr!
@@ -86,13 +87,13 @@ protected:
 												   const vulkan_command_buffer& cmd_buffer,
 												   const VkPipeline pipeline,
 												   const VkPipelineLayout pipeline_layout,
-												   const std::vector<const vulkan_function_entry*>& entries,
+												   const std::vector<vulkan_function_entry*>& entries,
 												   const char* debug_label,
 												   bool& success) const;
 	
 	bool set_and_handle_arguments(const bool is_shader,
 								  vulkan_encoder& encoder,
-								  const std::vector<const vulkan_function_entry*>& shader_entries,
+								  const std::vector<vulkan_function_entry*>& shader_entries,
 								  const std::vector<device_function_arg>& args,
 								  const std::vector<device_function_arg>& implicit_args,
 								  vulkan_args::transition_info_t& transition_info) const;

@@ -93,7 +93,7 @@ protected:
 	
 	bool update_vulkan_pipeline();
 	
-	const vulkan_pipeline_state_t* vk_pipeline_state { nullptr };
+	vulkan_pipeline_state_t vk_pipeline_state {};
 	VkFramebuffer create_vulkan_framebuffer(const VkRenderPass& vk_render_pass, const std::string& pass_debug_label,
 											const std::optional<decltype(render_pipeline_description::viewport)>& dyn_viewport);
 	

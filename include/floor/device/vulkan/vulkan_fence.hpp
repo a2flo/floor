@@ -31,7 +31,7 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 
 //! NOTE: the way "device_fence" is used/usable, there is not direct match in Vulkan,
 //!       we can however use a timeline semaphore (which is more powerful) to simulate the behavior
-//! NOTE: the underyling value is increasing monotonically, i.e. when signaling this, the next value
+//! NOTE: the underlying value is increasing monotonically, i.e. when signaling this, the next value
 //!       will be: "get_current_value() + 1"
 //! NOTE: it is still possible to create binary semaphores by setting "create_binary_sema" to true (in that case, ignore the above NOTE)
 class vulkan_fence final : public device_fence {
@@ -48,7 +48,7 @@ public:
 		return dev;
 	}
 	
-	//! returns the current unsignaled value of the underyling semaphore
+	//! returns the current unsignaled value of the underlying semaphore
 	uint64_t get_unsignaled_value() const;
 	
 	//! returns the next value that is considered to be "signaled"
@@ -63,7 +63,7 @@ protected:
 	VkSemaphore semaphore { nullptr };
 	const device& dev;
 	uint64_t last_value { 0 };
-	uint64_t signal_value { 0 };
+	uint64_t signal_value { 1 };
 	const bool is_binary { false };
 	
 };

@@ -136,6 +136,11 @@ indirect_command_pipeline(desc_) {
 		if (desc.command_type == indirect_command_description::COMMAND_TYPE::COMPUTE) {
 			entry.per_cmd_size += const_math::round_next_multiple(vk_dev.desc_buffer_sizes.ssbo * desc.max_kernel_buffer_count,
 																  vk_dev.descriptor_buffer_offset_alignment);
+		} else if (desc.command_type == indirect_command_description::COMMAND_TYPE::RENDER) {
+			entry.per_cmd_size += const_math::round_next_multiple(vk_dev.desc_buffer_sizes.ssbo * desc.max_vertex_buffer_count,
+																  vk_dev.descriptor_buffer_offset_alignment);
+			entry.per_cmd_size += const_math::round_next_multiple(vk_dev.desc_buffer_sizes.ssbo * desc.max_fragment_buffer_count,
+																  vk_dev.descriptor_buffer_offset_alignment);
 		} else {
 			entry.per_cmd_size += const_math::round_next_multiple(vk_dev.desc_buffer_sizes.ssbo * desc.max_vertex_buffer_count,
 																  vk_dev.descriptor_buffer_offset_alignment);
@@ -278,7 +283,11 @@ void vulkan_indirect_command_pipeline::reset() {
 
 vulkan_indirect_command_pipeline::vulkan_pipeline_entry::vulkan_pipeline_entry(vulkan_pipeline_entry&& entry) :
 vk_dev(entry.vk_dev), per_queue_data(std::move(entry.per_queue_data)),
-cmd_parameters(entry.cmd_parameters), mapped_cmd_parameters(entry.mapped_cmd_parameters), per_cmd_size(entry.per_cmd_size), printf_buffer(entry.printf_buffer) {
+cmd_parameters(entry.cmd_parameters), mapped_cmd_parameters(entry.mapped_cmd_parameters), per_cmd_size(entry.per_cmd_size),
+#if defined(FLOOR_DEBUG)
+has_mesh_support(entry.has_mesh_support),
+#endif
+printf_buffer(entry.printf_buffer) {
 	entry.per_queue_data.clear();
 	entry.cmd_parameters = nullptr;
 	entry.mapped_cmd_parameters = nullptr;
@@ -298,6 +307,9 @@ vulkan_indirect_command_pipeline::vulkan_pipeline_entry& vulkan_indirect_command
 	entry.mapped_cmd_parameters = nullptr;
 	entry.per_cmd_size = 0;
 	entry.printf_buffer = nullptr;
+#if defined(FLOOR_DEBUG)
+	has_mesh_support = entry.has_mesh_support;
+#endif
 	return *this;
 }
 
@@ -335,9 +347,10 @@ indirect_render_command_encoder(dev_, pipeline_, is_multi_view_, is_mesh_shading
 pipeline_entry(pipeline_entry_), command_idx(command_idx_) {
 	const auto& vk_render_pipeline = (const vulkan_pipeline&)pipeline;
 	const auto& vk_dev = (const vulkan_device&)dev;
-	pipeline_state = vk_render_pipeline.get_vulkan_pipeline_state(vk_dev, is_multi_view,
-																  !vk_dev.inherited_viewport_scissor_support /* indirect if !inheriting viewport/scissor */);
-	if (!pipeline_state || !pipeline_state->pipeline) {
+	// NOTE: for mesh shading, this is only the initial/default pipeline, we can only request the proper one once the local sizes are known
+	std::tie(pipeline_state, pipeline_key) = vk_render_pipeline.get_or_create_pipeline_state(vk_dev, is_multi_view,
+																							 !vk_dev.inherited_viewport_scissor_support /* indirect if !inheriting viewport/scissor */);
+	if (!pipeline_state.is_valid()) {
 		throw std::runtime_error("no render pipeline entry exists for device " + vk_dev.name);
 	}
 	pass = vk_render_pipeline.get_vulkan_pass(is_multi_view);
@@ -357,24 +370,20 @@ pipeline_entry(pipeline_entry_), command_idx(command_idx_) {
 	}
 #endif
 	bool has_soft_printf = false;
-	if (pipeline_state->vs_entry) {
-		vs = pipeline_state->vs_entry;
-		has_soft_printf |= has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(vs->info->flags);
+	if (pipeline_state.vs_entry) {
+		has_soft_printf |= has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(pipeline_state.vs_entry->info->flags);
 	}
-	if (pipeline_state->fs_entry) {
-		fs = pipeline_state->fs_entry;
-		has_soft_printf |= has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(fs->info->flags);
+	if (pipeline_state.fs_entry) {
+		has_soft_printf |= has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(pipeline_state.fs_entry->info->flags);
 	}
-	if (pipeline_state->ts_entry) {
-		ts = pipeline_state->ts_entry;
-		has_soft_printf |= has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(ts->info->flags);
+	if (pipeline_state.ts_entry) {
+		has_soft_printf |= has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(pipeline_state.ts_entry->info->flags);
 	}
-	if (pipeline_state->ms_entry) {
-		ms = pipeline_state->ms_entry;
-		has_soft_printf |= has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(ms->info->flags);
+	if (pipeline_state.ms_entry) {
+		has_soft_printf |= has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(pipeline_state.ms_entry->info->flags);
 	}
 	
-	validate_shader_combinations(dev, vs, ts, ms);
+	validate_shader_combinations(dev, pipeline_state.vs_entry, pipeline_state.ts_entry, pipeline_state.ms_entry);
 	
 	// NOTE: for render commands/pipelines, this will always be the first per-query data entry
 	cmd_buffer = pipeline_entry.per_queue_data[0].cmd_buffers.at(command_idx);
@@ -446,10 +455,14 @@ void vulkan_indirect_render_command_encoder::set_arguments_vector(std::vector<de
 	args = std::move(args_);
 	implicit_args.clear();
 	
-	const auto vs_has_soft_printf = (vs && toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(vs->info->flags));
-	const auto fs_has_soft_printf = (fs && toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(fs->info->flags));
-	const auto ts_has_soft_printf = (ts && toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(ts->info->flags));
-	const auto ms_has_soft_printf = (ms && toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(ms->info->flags));
+	const auto vs_has_soft_printf = (pipeline_state.vs_entry &&
+									 toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(pipeline_state.vs_entry->info->flags));
+	const auto fs_has_soft_printf = (pipeline_state.fs_entry &&
+									 toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(pipeline_state.fs_entry->info->flags));
+	const auto ts_has_soft_printf = (pipeline_state.ts_entry &&
+									 toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(pipeline_state.ts_entry->info->flags));
+	const auto ms_has_soft_printf = (pipeline_state.ms_entry &&
+									 toolchain::has_flag<toolchain::FUNCTION_FLAGS::USES_SOFT_PRINTF>(pipeline_state.ms_entry->info->flags));
 	if (vs_has_soft_printf || fs_has_soft_printf || ts_has_soft_printf || ms_has_soft_printf) {
 		// NOTE: will use the same printf buffer here, but we need to specify it for all functions that use it
 		// NOTE: these are automatically added to the used resources
@@ -478,7 +491,7 @@ indirect_render_command_encoder& vulkan_indirect_render_command_encoder::draw(co
 		.first_vertex = first_vertex,
 		.first_instance = first_instance,
 	};
-	draw_internal(&draw_entry, nullptr);
+	draw_internal(&draw_entry, nullptr, nullptr);
 	return *this;
 }
 
@@ -498,60 +511,154 @@ indirect_render_command_encoder& vulkan_indirect_render_command_encoder::draw_in
 		.first_instance = first_instance,
 		.index_type = index_type,
 	};
-	draw_internal(nullptr, &draw_indexed_entry);
+	draw_internal(nullptr, &draw_indexed_entry, nullptr);
+	return *this;
+}
+
+indirect_render_command_encoder& vulkan_indirect_render_command_encoder::draw_mesh(const uint3 work_group_count,
+																				   const uint3 local_work_size_task,
+																				   const uint3 local_work_size_mesh) {
+#if defined(FLOOR_DEBUG)
+	if (!pipeline_entry.has_mesh_support) {
+		assert(false);
+		throw std::runtime_error("mesh shading is not supported");
+	}
+#endif
+	
+	// can now request the proper specialized pipeline (unless we already have it)
+	if ((pipeline_key.decode_task_local_size() != local_work_size_task).any() ||
+		(pipeline_key.decode_mesh_local_size() != local_work_size_mesh).any()) {
+		const auto& vk_render_pipeline = (const vulkan_pipeline&)pipeline;
+		const auto& vk_dev = (const vulkan_device&)dev;
+		
+		const auto wanted_key = vk_render_pipeline.create_key(vk_dev, is_multi_view,
+															  !vk_dev.inherited_viewport_scissor_support /* indirect if !inheriting viewport/scissor */,
+															  local_work_size_task, local_work_size_mesh);
+		std::tie(pipeline_state, pipeline_key) = vk_render_pipeline.get_or_create_pipeline_state(vk_dev, wanted_key);
+		if (!pipeline_state.is_valid()) {
+			throw std::runtime_error("no specialized mesh render pipeline entry exists for device " + dev.name);
+		}
+#if defined(FLOOR_DEBUG)
+		if ((pipeline_key.decode_task_local_size() != local_work_size_task).any() ||
+			(pipeline_key.decode_mesh_local_size() != local_work_size_mesh).any()) {
+			log_warn("using pipeline with different local sizes: task $ <-> $, mesh $ <-> $",
+					 local_work_size_task, pipeline_key.decode_task_local_size(),
+					 local_work_size_mesh, pipeline_key.decode_mesh_local_size());
+		}
+#endif
+		assert(pipeline_key.is_multi_view == is_multi_view);
+		assert(pipeline_key.is_indirect == !vk_dev.inherited_viewport_scissor_support);
+	}
+	
+	const graphics_renderer::mesh_draw_entry draw_mesh_entry {
+		.work_group_count = work_group_count,
+		.local_work_size_task = local_work_size_task,
+		.local_work_size_mesh = local_work_size_mesh,
+	};
+	draw_internal(nullptr, nullptr, &draw_mesh_entry);
 	return *this;
 }
 
 void vulkan_indirect_render_command_encoder::draw_internal(const graphics_renderer::multi_draw_entry* draw_entry,
-														   const graphics_renderer::multi_draw_indexed_entry* draw_index_entry) {
-	assert(pipeline_state);
-	const auto vk_vs = (const vulkan_function_entry*)vs;
-	const auto vk_fs = (const vulkan_function_entry*)fs;
+														   const graphics_renderer::multi_draw_indexed_entry* draw_index_entry,
+														   const graphics_renderer::mesh_draw_entry* draw_mesh_entry) {
+	assert(pipeline_state.is_valid());
 	
 	// set up pipeline
-	vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_state->pipeline);
+	vkCmdBindPipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_state.pipeline);
 	
 	// offset into "cmd_parameters" buffer where we'll write all parameters to for this command
 	const auto cmd_params_offset = command_idx * pipeline_entry.per_cmd_size;
 	std::vector<std::span<uint8_t>> cmd_params;
-	size_t fs_cmd_params_offset = 0;
+	VkDeviceSize ms_cmd_params_offset = 0, fs_cmd_params_offset = 0;
 #if defined(FLOOR_DEBUG)
 	// validate that all descriptor data fits into "per_cmd_size"
-	const auto total_desc_data_size = (vk_vs ? vk_vs->desc_buffer.layout_size_in_bytes : 0) + (vk_fs ? vk_fs->desc_buffer.layout_size_in_bytes : 0);
+	const auto total_desc_data_size = ((pipeline_state.vs_entry ? pipeline_state.vs_entry->desc_buffer.layout_size_in_bytes : 0) +
+									   (pipeline_state.fs_entry ? pipeline_state.fs_entry->desc_buffer.layout_size_in_bytes : 0) +
+									   (pipeline_state.ts_entry ? pipeline_state.ts_entry->desc_buffer.layout_size_in_bytes : 0) +
+									   (pipeline_state.ms_entry ? pipeline_state.ms_entry->desc_buffer.layout_size_in_bytes : 0));
 	if (total_desc_data_size > pipeline_entry.per_cmd_size) {
 		throw std::runtime_error("total descriptor data size " + std::to_string(total_desc_data_size) +
-							" > expected per-cmd size " + std::to_string(pipeline_entry.per_cmd_size));
+								 " > expected per-cmd size " + std::to_string(pipeline_entry.per_cmd_size));
 	}
 #endif
-	if (vk_vs) {
-		// pipeline_entry.per_cmd_size check
+	if (pipeline_state.vs_entry) {
 		cmd_params.emplace_back(std::span<uint8_t> {
 			(uint8_t*)pipeline_entry.mapped_cmd_parameters + cmd_params_offset,
-			vk_vs->desc_buffer.layout_size_in_bytes
+			pipeline_state.vs_entry->desc_buffer.layout_size_in_bytes
 		});
-		fs_cmd_params_offset = vk_vs->desc_buffer.layout_size_in_bytes;
-	}
-	if (vk_fs) {
-		// pipeline_entry.per_cmd_size check
+		fs_cmd_params_offset = pipeline_state.vs_entry->desc_buffer.layout_size_in_bytes;
+		
+		if (pipeline_state.fs_entry) {
+			cmd_params.emplace_back(std::span<uint8_t> {
+				(uint8_t*)pipeline_entry.mapped_cmd_parameters + cmd_params_offset + fs_cmd_params_offset,
+				pipeline_state.fs_entry->desc_buffer.layout_size_in_bytes
+			});
+		}
+	} else {
+		assert(pipeline_state.ms_entry);
+		
+		if (pipeline_state.ts_entry) {
+			cmd_params.emplace_back(std::span<uint8_t> {
+				(uint8_t*)pipeline_entry.mapped_cmd_parameters + cmd_params_offset,
+				pipeline_state.ts_entry->desc_buffer.layout_size_in_bytes
+			});
+			ms_cmd_params_offset = pipeline_state.ts_entry->desc_buffer.layout_size_in_bytes;
+		}
+		
 		cmd_params.emplace_back(std::span<uint8_t> {
-			(uint8_t*)pipeline_entry.mapped_cmd_parameters + cmd_params_offset + fs_cmd_params_offset,
-			vk_fs->desc_buffer.layout_size_in_bytes
+			(uint8_t*)pipeline_entry.mapped_cmd_parameters + cmd_params_offset + ms_cmd_params_offset,
+			pipeline_state.ms_entry->desc_buffer.layout_size_in_bytes
 		});
+		fs_cmd_params_offset = ms_cmd_params_offset + pipeline_state.ms_entry->desc_buffer.layout_size_in_bytes;
+		
+		if (pipeline_state.fs_entry) {
+			cmd_params.emplace_back(std::span<uint8_t> {
+				(uint8_t*)pipeline_entry.mapped_cmd_parameters + cmd_params_offset + fs_cmd_params_offset,
+				pipeline_state.fs_entry->desc_buffer.layout_size_in_bytes
+			});
+		}
 	}
 	
 	// set/handle arguments
-	const auto has_non_arg_buffer_arguments_vs = (vk_vs && vk_vs->desc_buffer.desc_buffer_container != nullptr);
-	const auto has_non_arg_buffer_arguments_fs = (vk_fs && vk_fs->desc_buffer.desc_buffer_container != nullptr);
-	const auto has_non_arg_buffer_arguments = (has_non_arg_buffer_arguments_vs || has_non_arg_buffer_arguments_fs);
-	const std::vector<const function_info*> entries {
-		vk_vs ? vk_vs->info : nullptr,
-		vk_fs ? vk_fs->info : nullptr,
-	};
-	const std::vector<const std::vector<VkDeviceSize>*> argument_offsets {
-		vk_vs ? &vk_vs->desc_buffer.argument_offsets : nullptr,
-		vk_fs ? &vk_fs->desc_buffer.argument_offsets : nullptr,
-	};
-	auto [args_success, arg_buffers] = vulkan_args::set_arguments<vulkan_args::ENCODER_TYPE::INDIRECT_SHADER>((const vulkan_device&)dev,
+	const auto has_non_arg_buffer_arguments_vs = (pipeline_state.vs_entry &&
+												  pipeline_state.vs_entry->desc_buffer.desc_buffer_container != nullptr);
+	const auto has_non_arg_buffer_arguments_fs = (pipeline_state.fs_entry &&
+												  pipeline_state.fs_entry->desc_buffer.desc_buffer_container != nullptr);
+	const auto has_non_arg_buffer_arguments_ts = (pipeline_state.ts_entry &&
+												  pipeline_state.ts_entry->desc_buffer.desc_buffer_container != nullptr);
+	const auto has_non_arg_buffer_arguments_ms = (pipeline_state.ms_entry &&
+												  pipeline_state.ms_entry->desc_buffer.desc_buffer_container != nullptr);
+	const auto non_arg_buffer_set_count = ((has_non_arg_buffer_arguments_vs ? 1u : 0u) +
+										   (has_non_arg_buffer_arguments_ts ? 1u : 0u) +
+										   (has_non_arg_buffer_arguments_ms ? 1u : 0u) +
+										   (has_non_arg_buffer_arguments_fs ? 1u : 0u));
+	const auto has_non_arg_buffer_arguments = (non_arg_buffer_set_count > 0u);
+	std::vector<const function_info*> entries;
+	std::vector<const std::vector<VkDeviceSize>*> argument_offsets;
+	if (pipeline_state.vs_entry) {
+		entries = {
+			pipeline_state.vs_entry ? pipeline_state.vs_entry->info : nullptr,
+			pipeline_state.fs_entry ? pipeline_state.fs_entry->info : nullptr,
+		};
+		argument_offsets = {
+			pipeline_state.vs_entry ? &pipeline_state.vs_entry->desc_buffer.argument_offsets : nullptr,
+			pipeline_state.fs_entry ? &pipeline_state.fs_entry->desc_buffer.argument_offsets : nullptr,
+		};
+	} else {
+		entries = {
+			pipeline_state.ts_entry ? pipeline_state.ts_entry->info : nullptr,
+			pipeline_state.ms_entry ? pipeline_state.ms_entry->info : nullptr,
+			pipeline_state.fs_entry ? pipeline_state.fs_entry->info : nullptr,
+		};
+		argument_offsets = {
+			pipeline_state.ts_entry ? &pipeline_state.ts_entry->desc_buffer.argument_offsets : nullptr,
+			pipeline_state.ms_entry ? &pipeline_state.ms_entry->desc_buffer.argument_offsets : nullptr,
+			pipeline_state.fs_entry ? &pipeline_state.fs_entry->desc_buffer.argument_offsets : nullptr,
+		};
+	}
+	const auto& vk_dev = (const vulkan_device&)dev;
+	auto [args_success, arg_buffers] = vulkan_args::set_arguments<vulkan_args::ENCODER_TYPE::INDIRECT_SHADER>(vk_dev,
 																											  cmd_params,
 																											  entries,
 																											  argument_offsets,
@@ -566,19 +673,19 @@ void vulkan_indirect_render_command_encoder::draw_internal(const graphics_render
 	const VkBindDescriptorBufferEmbeddedSamplersInfoEXT bind_embedded_info {
 		.sType = VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_BUFFER_EMBEDDED_SAMPLERS_INFO_EXT,
 		.pNext = nullptr,
-		.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
-		.layout = pipeline_state->layout,
+		.stageFlags = vk_dev.shader_stage_all_graphics,
+		.layout = pipeline_state.layout,
 		.set = 0 /* always set #0 */,
 	};
 	vkCmdBindDescriptorBufferEmbeddedSamplers2EXT(cmd_buffer, &bind_embedded_info);
 	
 	// setup + bind descriptor buffers
-	const auto desc_buf_count = ((has_non_arg_buffer_arguments ? 1u : 0u) /* our cmd params desc buf */ +
-								 uint32_t(arg_buffers.size()) /* user-specified argument buffers */);
+	const auto desc_buf_binding_count = ((has_non_arg_buffer_arguments ? 1u : 0u) /* our cmd params desc buf */ +
+										 uint32_t(arg_buffers.size()) /* user-specified argument buffers */);
 	std::vector<VkDescriptorBufferBindingInfoEXT> desc_buf_bindings;
-	desc_buf_bindings.resize(desc_buf_count);
+	desc_buf_bindings.resize(desc_buf_binding_count);
 	std::vector<VkBufferUsageFlags2CreateInfo> desc_buf_bindings_usage;
-	desc_buf_bindings_usage.resize(desc_buf_count);
+	desc_buf_bindings_usage.resize(desc_buf_binding_count);
 	size_t desc_buf_binding_idx = 0;
 	
 	if (has_non_arg_buffer_arguments) {
@@ -614,49 +721,108 @@ void vulkan_indirect_render_command_encoder::draw_internal(const graphics_render
 	
 	vkCmdBindDescriptorBuffersEXT(cmd_buffer, uint32_t(desc_buf_bindings.size()), desc_buf_bindings.data());
 	
-	// set fixed descriptor buffers (set #1 is the vertex shader, set #2 is the fragment shader)
+	// set fixed descriptor buffers (set #1 is the vertex shader or task shader, set #2 is the fragment shader, set #3 is the mesh shader)
 	// NOTE: these may be optional
-	static constexpr const uint32_t buffer_indices[2] { 0, 0 }; // same descriptor buffer here
-	const VkDeviceSize offsets [2] { 0, fs_cmd_params_offset };
-	const uint32_t start_set = (has_non_arg_buffer_arguments_vs ? 1 : 2);
-	const uint32_t set_count = ((has_non_arg_buffer_arguments_vs ? 1 : 0) + (has_non_arg_buffer_arguments_fs ? 1 : 0));
-	if (set_count > 0) {
-		const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
-			.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
-			.pNext = nullptr,
-			.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
-			.layout = pipeline_state->layout,
-			.firstSet = start_set,
-			.setCount = set_count,
-			.pBufferIndices = &buffer_indices[0],
-			.pOffsets = &offsets[0],
-		};
-		vkCmdSetDescriptorBufferOffsets2EXT(cmd_buffer, &set_desc_buffer_offsets_info);
+	if (has_non_arg_buffer_arguments) {
+		static constexpr const uint32_t buffer_indices[2] { 0, 0 }; // same descriptor buffer here
+		if (pipeline_state.vs_entry) {
+			const VkDeviceSize offsets[2] { 0, (has_non_arg_buffer_arguments_vs ? fs_cmd_params_offset : 0) };
+			const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
+				.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
+				.pNext = nullptr,
+				.stageFlags = vk_dev.shader_stage_all_graphics,
+				.layout = pipeline_state.layout,
+				.firstSet = (has_non_arg_buffer_arguments_vs ? 1 : 2),
+				.setCount = non_arg_buffer_set_count,
+				.pBufferIndices = &buffer_indices[0],
+				.pOffsets = &offsets[0],
+			};
+			vkCmdSetDescriptorBufferOffsets2EXT(cmd_buffer, &set_desc_buffer_offsets_info);
+		} else {
+			// as sets must be contiguous, but any of them may be optional, just set them all individually rather than making this a mess
+			if (has_non_arg_buffer_arguments_ts) {
+				static constexpr const VkDeviceSize offset { 0 };
+				const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
+					.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
+					.pNext = nullptr,
+					.stageFlags = vk_dev.shader_stage_all_graphics,
+					.layout = pipeline_state.layout,
+					.firstSet = 1,
+					.setCount = 1,
+					.pBufferIndices = &buffer_indices[0],
+					.pOffsets = &offset,
+				};
+				vkCmdSetDescriptorBufferOffsets2EXT(cmd_buffer, &set_desc_buffer_offsets_info);
+			}
+			if (has_non_arg_buffer_arguments_fs) {
+				const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
+					.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
+					.pNext = nullptr,
+					.stageFlags = vk_dev.shader_stage_all_graphics,
+					.layout = pipeline_state.layout,
+					.firstSet = 2,
+					.setCount = 1,
+					.pBufferIndices = &buffer_indices[0],
+					.pOffsets = &fs_cmd_params_offset,
+				};
+				vkCmdSetDescriptorBufferOffsets2EXT(cmd_buffer, &set_desc_buffer_offsets_info);
+			}
+			if (has_non_arg_buffer_arguments_ms) {
+				const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
+					.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
+					.pNext = nullptr,
+					.stageFlags = vk_dev.shader_stage_all_graphics,
+					.layout = pipeline_state.layout,
+					.firstSet = 3,
+					.setCount = 1,
+					.pBufferIndices = &buffer_indices[0],
+					.pOffsets = &ms_cmd_params_offset,
+				};
+				vkCmdSetDescriptorBufferOffsets2EXT(cmd_buffer, &set_desc_buffer_offsets_info);
+			}
+		}
 	}
 	
 	// bind argument buffers if there are any
-	// NOTE: descriptor set range is [5, 8] for vertex shaders and [9, 12] for fragment shaders
+	// NOTE: see vulkan_pipeline.hpp for layout/indices
 	std::vector<uint32_t> arg_buf_vs_buf_indices;
+	std::vector<uint32_t> arg_buf_ts_buf_indices;
+	std::vector<uint32_t> arg_buf_ms_buf_indices;
 	std::vector<uint32_t> arg_buf_fs_buf_indices;
-	uint32_t arg_buf_vs_set_count = 0, arg_buf_fs_set_count = 0;
-	uint32_t desc_buf_index = (set_count > 0 ? 1 : 0); // 0 if no command desc buffer is used, 1 otherwise
+	uint32_t arg_buf_vs_set_count = 0u, arg_buf_fs_set_count = 0u, arg_buf_ts_set_count = 0u, arg_buf_ms_set_count = 0u;
+	uint32_t desc_buf_index = (has_non_arg_buffer_arguments ? 1u : 0u); // 0 if no command desc buffer is used, 1 otherwise
 	for (const auto& arg_buffer : arg_buffers) {
-		assert(arg_buffer.first <= 1u);
-		if (arg_buffer.first == 0) {
-			++arg_buf_vs_set_count;
-			arg_buf_vs_buf_indices.emplace_back(desc_buf_index++);
-		} else if (arg_buffer.first == 1) {
-			++arg_buf_fs_set_count;
-			arg_buf_fs_buf_indices.emplace_back(desc_buf_index++);
+		if (pipeline_state.vs_entry) {
+			assert(arg_buffer.first <= 1u);
+			if (arg_buffer.first == 0u) {
+				++arg_buf_vs_set_count;
+				arg_buf_vs_buf_indices.emplace_back(desc_buf_index++);
+			} else if (arg_buffer.first == 1u) {
+				++arg_buf_fs_set_count;
+				arg_buf_fs_buf_indices.emplace_back(desc_buf_index++);
+			}
+		} else {
+			assert(arg_buffer.first <= 2u);
+			if (arg_buffer.first == 0u) {
+				++arg_buf_ts_set_count;
+				arg_buf_ts_buf_indices.emplace_back(desc_buf_index++);
+			} else if (arg_buffer.first == 1u) {
+				++arg_buf_ms_set_count;
+				arg_buf_ms_buf_indices.emplace_back(desc_buf_index++);
+			} else if (arg_buffer.first == 2u) {
+				++arg_buf_fs_set_count;
+				arg_buf_fs_buf_indices.emplace_back(desc_buf_index++);
+			}
 		}
 	}
-	const std::vector<VkDeviceSize> arg_buf_offsets(std::max(arg_buf_vs_set_count, arg_buf_fs_set_count), 0); // always 0 for all
+	const auto max_arg_buf_set_count = std::max({ arg_buf_vs_set_count, arg_buf_fs_set_count, arg_buf_ts_set_count, arg_buf_ms_set_count });
+	const std::vector<VkDeviceSize> arg_buf_offsets(max_arg_buf_set_count, 0); // always 0 for all
 	if (arg_buf_vs_set_count > 0) {
 		const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
 			.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
 			.pNext = nullptr,
-			.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
-			.layout = pipeline_state->layout,
+			.stageFlags = vk_dev.shader_stage_all_graphics,
+			.layout = pipeline_state.layout,
 			.firstSet = vulkan_pipeline::argument_buffer_vs_start_set,
 			.setCount = arg_buf_vs_set_count,
 			.pBufferIndices = arg_buf_vs_buf_indices.data(),
@@ -664,13 +830,46 @@ void vulkan_indirect_render_command_encoder::draw_internal(const graphics_render
 		};
 		vkCmdSetDescriptorBufferOffsets2EXT(cmd_buffer, &set_desc_buffer_offsets_info);
 	}
-	if (arg_buf_fs_set_count > 0) {
-		const auto is_fs_low_desc_count = (fs != nullptr && has_flag<FUNCTION_FLAGS::VULKAN_LOW_DS>(fs->info->flags));
+	if (arg_buf_ts_set_count > 0) {
+		[[maybe_unused]] const auto is_ts_low_desc_count = (pipeline_state.ts_entry != nullptr &&
+															has_flag<FUNCTION_FLAGS::VULKAN_LOW_DS>(pipeline_state.ts_entry->info->flags));
+		assert(!is_ts_low_desc_count && "low descriptor set count not supported for mesh shading");
 		const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
 			.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
 			.pNext = nullptr,
-			.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
-			.layout = pipeline_state->layout,
+			.stageFlags = vk_dev.shader_stage_all_graphics,
+			.layout = pipeline_state.layout,
+			.firstSet = vulkan_pipeline::argument_buffer_ts_start_set_high,
+			.setCount = arg_buf_ts_set_count,
+			.pBufferIndices = arg_buf_ts_buf_indices.data(),
+			.pOffsets = arg_buf_offsets.data(),
+		};
+		vkCmdSetDescriptorBufferOffsets2EXT(cmd_buffer, &set_desc_buffer_offsets_info);
+	}
+	if (arg_buf_ms_set_count > 0) {
+		[[maybe_unused]] const auto is_ms_low_desc_count = (pipeline_state.ms_entry != nullptr &&
+															has_flag<FUNCTION_FLAGS::VULKAN_LOW_DS>(pipeline_state.ms_entry->info->flags));
+		assert(!is_ms_low_desc_count && "low descriptor set count not supported for mesh shading");
+		const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
+			.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
+			.pNext = nullptr,
+			.stageFlags = vk_dev.shader_stage_all_graphics,
+			.layout = pipeline_state.layout,
+			.firstSet = vulkan_pipeline::argument_buffer_ms_start_set_high,
+			.setCount = arg_buf_ms_set_count,
+			.pBufferIndices = arg_buf_ms_buf_indices.data(),
+			.pOffsets = arg_buf_offsets.data(),
+		};
+		vkCmdSetDescriptorBufferOffsets2EXT(cmd_buffer, &set_desc_buffer_offsets_info);
+	}
+	if (arg_buf_fs_set_count > 0) {
+		const auto is_fs_low_desc_count = (pipeline_state.fs_entry != nullptr &&
+										   has_flag<FUNCTION_FLAGS::VULKAN_LOW_DS>(pipeline_state.fs_entry->info->flags));
+		const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
+			.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
+			.pNext = nullptr,
+			.stageFlags = vk_dev.shader_stage_all_graphics,
+			.layout = pipeline_state.layout,
 			.firstSet = (is_fs_low_desc_count ?
 						 vulkan_pipeline::argument_buffer_fs_start_set_low :
 						 vulkan_pipeline::argument_buffer_fs_start_set_high),
@@ -694,21 +893,12 @@ void vulkan_indirect_render_command_encoder::draw_internal(const graphics_render
 		}
 		vkCmdDrawIndexed(cmd_buffer, draw_index_entry->index_count, draw_index_entry->instance_count, draw_index_entry->first_index,
 						 draw_index_entry->vertex_offset, draw_index_entry->first_instance);
+	} else if (draw_mesh_entry) {
+		vkCmdDrawMeshTasksEXT(cmd_buffer,
+							  draw_mesh_entry->work_group_count.x,
+							  draw_mesh_entry->work_group_count.y,
+							  draw_mesh_entry->work_group_count.z);
 	}
-}
-
-indirect_render_command_encoder& vulkan_indirect_render_command_encoder::draw_mesh(const uint3 work_group_count [[maybe_unused]],
-																				   const uint3 local_work_size_task [[maybe_unused]],
-																				   const uint3 local_work_size_mesh [[maybe_unused]]) {
-#if defined(FLOOR_DEBUG)
-	if (!pipeline_entry.has_mesh_support) {
-		assert(false);
-		throw std::runtime_error("mesh shading is not supported");
-	}
-#endif
-	
-	// TODO: mesh shading implementation
-	throw std::runtime_error("mesh shading not implemented yet in Vulkan");
 }
 
 indirect_render_command_encoder& vulkan_indirect_render_command_encoder::draw_patches(const std::vector<const device_buffer*> control_point_buffers [[maybe_unused]],

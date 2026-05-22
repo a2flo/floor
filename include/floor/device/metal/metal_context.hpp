@@ -25,7 +25,7 @@
 #include <floor/device/device_context.hpp>
 #include <floor/threading/thread_safety.hpp>
 #include <floor/threading/atomic_spin_lock.hpp>
-#include <floor/threading/safe_resource_container.hpp>
+#include <floor/threading/resource_slot_handler.hpp>
 
 #if defined(__OBJC__)
 @class floor_metal_view;
@@ -205,9 +205,9 @@ public:
 	const metal_buffer* get_null_buffer(const device& dev) const;
 	
 	//! acquire an internal soft-printf buffer
-	std::pair<device_buffer*, uint32_t> acquire_soft_printf_buffer(const device& dev) const;
+	std::pair<device_buffer*, uint8_t> acquire_soft_printf_buffer(const device& dev) const;
 	//! release an internal soft-printf buffer
-	void release_soft_printf_buffer(const device& dev, const std::pair<device_buffer*, uint32_t>& buf) const;
+	void release_soft_printf_buffer(const device& dev, const std::pair<device_buffer*, uint8_t>& buf) const;
 	
 #if defined(__OBJC__)
 	//! returns the IMAGE_TYPE for the specified Metal "pixel_format", returns IMAGE_TYPE::NONE if there is no match
@@ -253,7 +253,7 @@ protected:
 	
 	// soft-printf buffer cache
 	static constexpr const uint32_t soft_printf_buffer_count { 32u };
-	using soft_printf_buffer_rsrc_container_type = safe_resource_container<std::shared_ptr<device_buffer>, soft_printf_buffer_count, ~0u>;
+	using soft_printf_buffer_rsrc_container_type = resource_slot_container<std::shared_ptr<device_buffer>, soft_printf_buffer_count>;
 	fl::flat_map<const device*, std::unique_ptr<soft_printf_buffer_rsrc_container_type>> soft_printf_buffers;
 	
 	//! true if any Metal device supports Metal4

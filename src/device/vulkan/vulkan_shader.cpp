@@ -60,8 +60,8 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 													   const vulkan_command_buffer& cmd_buffer,
 													   const VkPipeline pipeline,
 													   const VkPipelineLayout pipeline_layout,
-													   const vulkan_function_entry* vertex_shader,
-													   const vulkan_function_entry* fragment_shader,
+													   vulkan_function_entry* vertex_shader,
+													   vulkan_function_entry* fragment_shader,
 													   const std::span<const graphics_renderer::multi_draw_entry> draw_entries,
 													   const std::span<const graphics_renderer::multi_draw_indexed_entry> draw_indexed_entries,
 													   const std::vector<device_function_arg>& args) const {
@@ -74,7 +74,7 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 	
 	// create command buffer ("encoder") for this function execution
 	bool encoder_success = false;
-	const std::vector<const vulkan_function_entry*> shader_entries {
+	const std::vector<vulkan_function_entry*> shader_entries {
 		vertex_shader, fragment_shader
 	};
 	auto encoder = create_encoder(cqueue, cmd_buffer, pipeline, pipeline_layout,
@@ -109,13 +109,15 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 		encoder->acquired_descriptor_buffers.emplace_back(vertex_shader->desc_buffer.desc_buffer_container->acquire_descriptor_buffer());
 		vs_has_descriptors = true;
 	}
-	if (vs_has_descriptors && vertex_shader->constant_buffers) {
-		encoder->acquired_constant_buffers.emplace_back(vertex_shader->constant_buffers->acquire());
-		encoder->constant_buffer_mappings.emplace_back(vertex_shader->constant_buffer_mappings[encoder->acquired_constant_buffers.back().second]);
+	if (vs_has_descriptors && vertex_shader->has_constant_buffers()) {
+		auto acq_const_buf = vertex_shader->constant_buffers.acquire_resource_no_auto_release();
+		assert(acq_const_buf.res != nullptr);
+		encoder->acquired_constant_buffers.emplace_back(*acq_const_buf.res, acq_const_buf.index());
+		encoder->constant_buffer_mappings.emplace_back(vertex_shader->constant_buffer_mappings[acq_const_buf.index()]);
 		encoder->constant_buffer_wrappers.emplace_back(vulkan_args::constant_buffer_wrapper_t {
-			&vertex_shader->constant_buffer_info,
-			encoder->acquired_constant_buffers.back().first,
-			{ (uint8_t*)encoder->constant_buffer_mappings.back(), encoder->acquired_constant_buffers.back().first->get_size() }
+			.constant_buffer_info = &vertex_shader->constant_buffer_info,
+			.constant_buffer_storage = *acq_const_buf.res,
+			.constant_buffer_mapping = { (uint8_t*)encoder->constant_buffer_mappings.back(), (*acq_const_buf.res)->get_size() }
 		});
 	} else {
 		encoder->acquired_constant_buffers.emplace_back(std::pair<device_buffer*, uint32_t> { nullptr, ~0u }); // add dummy
@@ -128,13 +130,15 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 		encoder->acquired_descriptor_buffers.emplace_back(fragment_shader->desc_buffer.desc_buffer_container->acquire_descriptor_buffer());
 		fs_has_descriptors = true;
 	}
-	if (fragment_shader != nullptr && fs_has_descriptors && fragment_shader->constant_buffers) {
-		encoder->acquired_constant_buffers.emplace_back(fragment_shader->constant_buffers->acquire());
-		encoder->constant_buffer_mappings.emplace_back(fragment_shader->constant_buffer_mappings[encoder->acquired_constant_buffers.back().second]);
+	if (fragment_shader != nullptr && fs_has_descriptors && fragment_shader->has_constant_buffers()) {
+		auto acq_const_buf = fragment_shader->constant_buffers.acquire_resource_no_auto_release();
+		assert(acq_const_buf.res != nullptr);
+		encoder->acquired_constant_buffers.emplace_back(*acq_const_buf.res, acq_const_buf.index());
+		encoder->constant_buffer_mappings.emplace_back(fragment_shader->constant_buffer_mappings[acq_const_buf.index()]);
 		encoder->constant_buffer_wrappers.emplace_back(vulkan_args::constant_buffer_wrapper_t {
-			&fragment_shader->constant_buffer_info,
-			encoder->acquired_constant_buffers.back().first,
-			{ (uint8_t*)encoder->constant_buffer_mappings.back(), encoder->acquired_constant_buffers.back().first->get_size() }
+			.constant_buffer_info = &fragment_shader->constant_buffer_info,
+			.constant_buffer_storage = *acq_const_buf.res,
+			.constant_buffer_mapping = { (uint8_t*)encoder->constant_buffer_mappings.back(), (*acq_const_buf.res)->get_size() }
 		});
 	} else {
 		encoder->acquired_constant_buffers.emplace_back(std::pair<device_buffer*, uint32_t> { nullptr, ~0u }); // add dummy
@@ -156,7 +160,7 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 	const VkBindDescriptorBufferEmbeddedSamplersInfoEXT bind_embedded_info {
 		.sType = VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_BUFFER_EMBEDDED_SAMPLERS_INFO_EXT,
 		.pNext = nullptr,
-		.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
+		.stageFlags = vk_dev.shader_stage_all_graphics,
 		.layout = encoder->pipeline_layout,
 		.set = 0 /* always set #0 */,
 	};
@@ -215,7 +219,7 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 			const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
 				.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
 				.pNext = nullptr,
-				.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
+				.stageFlags = vk_dev.shader_stage_all_graphics,
 				.layout = encoder->pipeline_layout,
 				.firstSet = start_set,
 				.setCount = set_count,
@@ -246,7 +250,7 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 			const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
 				.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
 				.pNext = nullptr,
-				.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
+				.stageFlags = vk_dev.shader_stage_all_graphics,
 				.layout = encoder->pipeline_layout,
 				.firstSet = vulkan_pipeline::argument_buffer_vs_start_set,
 				.setCount = arg_buf_vs_set_count,
@@ -261,7 +265,7 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 			const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
 				.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
 				.pNext = nullptr,
-				.stageFlags = VK_SHADER_STAGE_ALL_GRAPHICS,
+				.stageFlags = vk_dev.shader_stage_all_graphics,
 				.layout = encoder->pipeline_layout,
 				.firstSet = (is_fs_low_desc_count ?
 							 vulkan_pipeline::argument_buffer_fs_start_set_low :
@@ -319,7 +323,7 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw(const device_queue& cqueu
 			for (size_t entry_idx = 0, entry_count = function_entries.size(); entry_idx < entry_count; ++entry_idx) {
 				auto& acq_const_buffer = (*acq_const_buffers)[entry_idx];
 				if (acq_const_buffer.first != nullptr) {
-					function_entries[entry_idx]->constant_buffers->release(acq_const_buffer);
+					function_entries[entry_idx]->constant_buffers.release_resource(acq_const_buffer.second);
 				}
 			}
 		});
@@ -336,9 +340,9 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw([[maybe_unused]] const de
 													   [[maybe_unused]] const vulkan_command_buffer& cmd_buffer,
 													   [[maybe_unused]] const VkPipeline pipeline,
 													   [[maybe_unused]] const VkPipelineLayout pipeline_layout,
-													   [[maybe_unused]] const vulkan_function_entry* task_shader,
-													   [[maybe_unused]] const vulkan_function_entry* mesh_shader,
-													   [[maybe_unused]] const vulkan_function_entry* fragment_shader,
+													   [[maybe_unused]] vulkan_function_entry* task_shader,
+													   [[maybe_unused]] vulkan_function_entry* mesh_shader,
+													   [[maybe_unused]] vulkan_function_entry* fragment_shader,
 													   [[maybe_unused]] const graphics_renderer::mesh_draw_entry& draw_entry,
 													   [[maybe_unused]] const std::vector<device_function_arg>& args) const {
 	// TODO: mesh shading implementation

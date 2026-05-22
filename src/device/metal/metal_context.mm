@@ -596,7 +596,9 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 				for (uint32_t buf_idx = 0; buf_idx < soft_printf_buffer_count; ++buf_idx) {
 					dev_soft_printf_buffers[buf_idx] = allocate_printf_buffer(*dev_queue);
 				}
-				soft_printf_buffers.insert_or_assign(dev.get(), std::make_unique<soft_printf_buffer_rsrc_container_type>(std::move(dev_soft_printf_buffers)));
+				auto instance = std::make_unique<soft_printf_buffer_rsrc_container_type>();
+				instance->resources = std::move(dev_soft_printf_buffers);
+				soft_printf_buffers.insert_or_assign(dev.get(), std::move(instance));
 			}
 		}
 	}
@@ -736,17 +738,19 @@ const metal_buffer* metal_context::get_null_buffer(const device& dev) const {
 	return nullptr;
 }
 
-std::pair<device_buffer*, uint32_t> metal_context::acquire_soft_printf_buffer(const device& dev) const {
+std::pair<device_buffer*, uint8_t> metal_context::acquire_soft_printf_buffer(const device& dev) const {
 	if (const auto iter = soft_printf_buffers.find(&dev); iter != soft_printf_buffers.end()) {
-		return iter->second->acquire();
+		auto acq_res = iter->second->acquire_resource_no_auto_release();
+		assert(acq_res.res != nullptr);
+		return { acq_res.res->get(), acq_res.index() };
 	}
 	log_error("no soft-printf buffer cache exists for this device: $!", dev.name);
 	return {};
 }
 
-void metal_context::release_soft_printf_buffer(const device& dev, const std::pair<device_buffer*, uint32_t>& buf) const {
+void metal_context::release_soft_printf_buffer(const device& dev, const std::pair<device_buffer*, uint8_t>& buf) const {
 	if (const auto iter = soft_printf_buffers.find(&dev); iter != soft_printf_buffers.end()) {
-		iter->second->release(buf);
+		iter->second->release_resource(buf.second);
 		return;
 	}
 	log_error("no soft-printf buffer cache exists for this device: $!", dev.name);

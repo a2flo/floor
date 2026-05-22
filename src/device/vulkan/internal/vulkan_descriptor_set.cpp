@@ -27,19 +27,20 @@
 namespace fl {
 
 descriptor_buffer_instance_t vulkan_descriptor_buffer_container::acquire_descriptor_buffer() {
-	auto [res, index] = descriptor_buffers.acquire();
-	return { res.first.get(), res.second, index, this };
+	auto acq_res = descriptor_buffers.acquire_resource_no_auto_release();
+	assert(acq_res.res != nullptr);
+	return { acq_res.res->first.get(), acq_res.res->second, acq_res.index(), this };
 }
 
 void vulkan_descriptor_buffer_container::release_descriptor_buffer(descriptor_buffer_instance_t& instance) {
-	if (instance.desc_buffer == nullptr || instance.index == ~0u) {
+	if (instance.desc_buffer == nullptr || instance.index == invalid_slot_idx) {
 		return;
 	}
 	
-	descriptor_buffers.release(instance.index);
+	descriptor_buffers.release_resource(instance.index);
 	
 	instance.desc_buffer = nullptr;
-	instance.index = ~0u;
+	instance.index = invalid_slot_idx;
 }
 
 } // namespace fl

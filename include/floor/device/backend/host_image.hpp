@@ -282,7 +282,7 @@ namespace host_image_impl {
 		
 		//! the underlying format of this image type
 		static constexpr const auto image_format = (fixed_image_type & IMAGE_TYPE::__FORMAT_MASK);
-		//! the underyling data type of this image type
+		//! the underlying data type of this image type
 		static constexpr const auto data_type = (fixed_image_type & IMAGE_TYPE::__DATA_TYPE_MASK);
 		//! bytes-per-pixel required for this image type
 		static constexpr const auto bpp = image_bytes_per_pixel(fixed_image_type);

@@ -611,22 +611,23 @@ void metal4_renderer::draw_patches_internal(const patch_draw_entry*,
 }
 
 static inline MTLStages sync_stage_to_metal_render_stages(const SYNC_STAGE stage) {
-	assert(stage != SYNC_STAGE::NONE);
+	assert(stage != SYNC_STAGE::NONE && stage != SYNC_STAGE::KERNEL && stage != SYNC_STAGE::BLIT);
 	MTLStages mtl_stages { 0u };
-	if (has_flag<SYNC_STAGE::VERTEX>(stage)) {
-		mtl_stages |= MTLStageVertex;
-	}
-	if (has_flag<SYNC_STAGE::TASK>(stage)) {
-		mtl_stages |= MTLStageObject;
-	}
-	if (has_flag<SYNC_STAGE::MESH>(stage)) {
-		mtl_stages |= MTLStageMesh;
-	}
-	if (has_flag<SYNC_STAGE::BOTTOM_OF_PIPE>(stage)) {
-		mtl_stages |= MTLStageVertex | MTLStageObject | MTLStageMesh;
-	}
-	if (has_flag<SYNC_STAGE::FRAGMENT>(stage) || has_flag<SYNC_STAGE::COLOR_ATTACHMENT_OUTPUT>(stage) || has_flag<SYNC_STAGE::TOP_OF_PIPE>(stage)) {
-		mtl_stages |= MTLStageFragment;
+	if (stage == SYNC_STAGE::ALL) {
+		mtl_stages = MTLStageAll;
+	} else {
+		if (has_flag<SYNC_STAGE::VERTEX>(stage)) {
+			mtl_stages |= MTLStageVertex;
+		}
+		if (has_flag<SYNC_STAGE::TASK>(stage)) {
+			mtl_stages |= MTLStageObject;
+		}
+		if (has_flag<SYNC_STAGE::MESH>(stage)) {
+			mtl_stages |= MTLStageMesh;
+		}
+		if (has_flag<SYNC_STAGE::FRAGMENT>(stage) || has_flag<SYNC_STAGE::COLOR_ATTACHMENT_OUTPUT>(stage)) {
+			mtl_stages |= MTLStageFragment;
+		}
 	}
 	return mtl_stages;
 }

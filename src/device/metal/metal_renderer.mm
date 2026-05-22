@@ -520,22 +520,23 @@ void metal_renderer::draw_patches_internal(const patch_draw_entry* draw_entry,
 }
 
 static inline MTLRenderStages sync_stage_to_metal_render_stages(const SYNC_STAGE stage) {
-	assert(stage != SYNC_STAGE::NONE);
+	assert(stage != SYNC_STAGE::NONE && stage != SYNC_STAGE::KERNEL && stage != SYNC_STAGE::BLIT);
 	MTLRenderStages mtl_stages { 0u };
-	if (has_flag<SYNC_STAGE::VERTEX>(stage) || has_flag<SYNC_STAGE::TESSELLATION>(stage)) {
-		mtl_stages |= MTLRenderStageVertex;
-	}
-	if (has_flag<SYNC_STAGE::TASK>(stage)) {
-		mtl_stages |= MTLRenderStageObject;
-	}
-	if (has_flag<SYNC_STAGE::MESH>(stage)) {
-		mtl_stages |= MTLRenderStageMesh;
-	}
-	if (has_flag<SYNC_STAGE::BOTTOM_OF_PIPE>(stage)) {
-		mtl_stages |= MTLStageVertex | MTLStageObject | MTLStageMesh;
-	}
-	if (has_flag<SYNC_STAGE::FRAGMENT>(stage) || has_flag<SYNC_STAGE::COLOR_ATTACHMENT_OUTPUT>(stage) || has_flag<SYNC_STAGE::TOP_OF_PIPE>(stage)) {
-		mtl_stages |= MTLRenderStageFragment;
+	if (stage == SYNC_STAGE::ALL) {
+		mtl_stages = MTLStageAll;
+	} else {
+		if (has_flag<SYNC_STAGE::VERTEX>(stage) || has_flag<SYNC_STAGE::TESSELLATION>(stage)) {
+			mtl_stages |= MTLRenderStageVertex;
+		}
+		if (has_flag<SYNC_STAGE::TASK>(stage)) {
+			mtl_stages |= MTLRenderStageObject;
+		}
+		if (has_flag<SYNC_STAGE::MESH>(stage)) {
+			mtl_stages |= MTLRenderStageMesh;
+		}
+		if (has_flag<SYNC_STAGE::FRAGMENT>(stage) || has_flag<SYNC_STAGE::COLOR_ATTACHMENT_OUTPUT>(stage)) {
+			mtl_stages |= MTLRenderStageFragment;
+		}
 	}
 	return mtl_stages;
 }

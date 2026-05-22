@@ -217,7 +217,7 @@ void vulkan_mesh_set_index_point(uint32_t, uint32_t) asm("floor.mesh.set_index.p
 void vulkan_mesh_set_index_line(uint32_t, clang_uint2) asm("floor.mesh.set_index.line");
 void vulkan_mesh_set_index_triangle(uint32_t, clang_uint3) asm("floor.mesh.set_index.triangle");
 
-void vulkan_mesh_emit_tasks(clang_uint3) __attribute__((noduplicate)) asm("floor.mesh.emit_tasks");
+void vulkan_mesh_emit_tasks(uint32_t, uint32_t, uint32_t) __attribute__((noduplicate, noreturn)) asm("floor.mesh.emit_tasks");
 
 template <typename vertex_type, typename primitive_type,
 		  uint32_t max_vertex_count, uint32_t max_primitive_count,
@@ -231,8 +231,11 @@ struct mesh {
 	
 	//! sets the actual output sizes (primitive count and vertex count),
 	//! the vertex count defaults to the max specified vertex count of the mesh (max_vertex_count)
-	void set_output_size(const uint32_t primitive_count, const uint32_t vertex_count = ~0u) const {
-		vulkan_mesh_set_output_size(primitive_count, vertex_count != ~0u ? vertex_count : max_vertex_count);
+	void set_output_size(const uint32_t primitive_count) const {
+		vulkan_mesh_set_output_size(max_vertex_count, primitive_count);
+	}
+	void set_output_size(const uint32_t primitive_count, const uint32_t vertex_count) const {
+		vulkan_mesh_set_output_size(vertex_count, primitive_count);
 	}
 	
 	//! sets the single "index" of a point for the primitive at index "primitive_idx"
@@ -265,7 +268,7 @@ protected:
 
 struct mesh_grid_properties {
 	void emit_tasks(const uint3 work_groups) const {
-		vulkan_mesh_emit_tasks(work_groups.to_clang_vector());
+		vulkan_mesh_emit_tasks(work_groups.x, work_groups.y, work_groups.z);
 	}
 	
 protected:

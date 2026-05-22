@@ -115,7 +115,8 @@ public:
 		SYNC_STAGE stage { SYNC_STAGE::NONE };
 	};
 	//! encodes the specified fences as a vector of "wait_fence_t"
-	static std::vector<wait_fence_t> encode_wait_fences(const std::vector<const device_fence*>& wait_fences);
+	static std::vector<wait_fence_t> encode_wait_fences(const std::vector<const device_fence*>& wait_fences,
+														const SYNC_STAGE sync_stage);
 	
 	//! definition for a fence that should be signaled after command buffer execution
 	struct signal_fence_t {
@@ -125,7 +126,8 @@ public:
 		SYNC_STAGE stage { SYNC_STAGE::NONE };
 	};
 	//! encodes the specified fences as a vector of "signal_fence_t"
-	static std::vector<signal_fence_t> encode_signal_fences(const std::vector<device_fence*>& signal_fences);
+	static std::vector<signal_fence_t> encode_signal_fences(const std::vector<device_fence*>& signal_fences,
+															const SYNC_STAGE sync_stage);
 	
 	vulkan_command_block make_command_block(const char* name, bool& error_signal, const bool is_blocking,
 											std::vector<wait_fence_t>&& wait_fences = {},

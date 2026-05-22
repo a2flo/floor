@@ -44,26 +44,30 @@ static const char* cmd_buffer_name(const vulkan_command_buffer& cmd_buffer) {
 
 static VkPipelineStageFlagBits2 sync_stage_to_vulkan_pipeline_stage(const SYNC_STAGE stage) {
 	VkPipelineStageFlagBits2 vk_stages { 0u };
-	if (has_flag<SYNC_STAGE::VERTEX>(stage)) {
-		vk_stages |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
-	}
-	if (has_flag<SYNC_STAGE::FRAGMENT>(stage)) {
-		vk_stages |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-	}
-	if (has_flag<SYNC_STAGE::TASK>(stage)) {
-		vk_stages |= VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT;
-	}
-	if (has_flag<SYNC_STAGE::MESH>(stage)) {
-		vk_stages |= VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT;
-	}
-	if (has_flag<SYNC_STAGE::COLOR_ATTACHMENT_OUTPUT>(stage)) {
-		vk_stages |= VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-	}
-	if (has_flag<SYNC_STAGE::BOTTOM_OF_PIPE>(stage)) {
-		vk_stages |= VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
-	}
-	if (has_flag<SYNC_STAGE::TOP_OF_PIPE>(stage)) {
-		vk_stages |= VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
+	if (stage == SYNC_STAGE::ALL) {
+		vk_stages = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+	} else {
+		if (has_flag<SYNC_STAGE::VERTEX>(stage)) {
+			vk_stages |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+		}
+		if (has_flag<SYNC_STAGE::FRAGMENT>(stage)) {
+			vk_stages |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+		}
+		if (has_flag<SYNC_STAGE::TASK>(stage)) {
+			vk_stages |= VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT;
+		}
+		if (has_flag<SYNC_STAGE::MESH>(stage)) {
+			vk_stages |= VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT;
+		}
+		if (has_flag<SYNC_STAGE::COLOR_ATTACHMENT_OUTPUT>(stage)) {
+			vk_stages |= VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+		}
+		if (has_flag<SYNC_STAGE::KERNEL>(stage)) {
+			vk_stages |= VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+		}
+		if (has_flag<SYNC_STAGE::BLIT>(stage)) {
+			vk_stages |= VK_PIPELINE_STAGE_2_BLIT_BIT;
+		}
 	}
 	return vk_stages;
 }
@@ -265,11 +269,11 @@ struct vulkan_command_pool_t {
 			.pNext = nullptr,
 			.flags = 0,
 			.waitSemaphoreInfoCount = wait_fences_count,
-			.pWaitSemaphoreInfos = (wait_fences_count > 0 ? &wait_sema_info[0] : nullptr),
+			.pWaitSemaphoreInfos = (wait_fences_count > 0 ? wait_sema_info.data() : nullptr),
 			.commandBufferInfoCount = 1,
 			.pCommandBufferInfos = &cmd_buf_info,
 			.signalSemaphoreInfoCount = uint32_t(signal_sema_info.size()),
-			.pSignalSemaphoreInfos = &signal_sema_info[0],
+			.pSignalSemaphoreInfos = signal_sema_info.data(),
 		};
 		VkResult submit_err { VK_SUCCESS };
 		{
@@ -642,14 +646,15 @@ void vulkan_queue::execute_indirect(const indirect_command_pipeline& indirect_cm
 		});
 	}
 	
-	auto wait_fences = encode_wait_fences(params.wait_fences);
-	auto signal_fences = encode_signal_fences(params.signal_fences);
+	auto wait_fences = encode_wait_fences(params.wait_fences, SYNC_STAGE::KERNEL);
+	auto signal_fences = encode_signal_fences(params.signal_fences, SYNC_STAGE::KERNEL);
 	submit_command_buffer(std::move(cmd_buffer), std::move(wait_fences), std::move(signal_fences), {},
 						  params.wait_until_completion ||
 						  vk_indirect_pipeline_entry->printf_buffer /* must block when soft-print is used */);
 }
 
-std::vector<vulkan_queue::wait_fence_t> vulkan_queue::encode_wait_fences(const std::vector<const device_fence*>& wait_fences) {
+std::vector<vulkan_queue::wait_fence_t> vulkan_queue::encode_wait_fences(const std::vector<const device_fence*>& wait_fences,
+																		 const SYNC_STAGE sync_stage) {
 	std::vector<wait_fence_t> vk_wait_fences;
 	for (const auto& fence : wait_fences) {
 		if (!fence) {
@@ -659,13 +664,14 @@ std::vector<vulkan_queue::wait_fence_t> vulkan_queue::encode_wait_fences(const s
 		vk_wait_fences.emplace_back(vulkan_queue::wait_fence_t {
 			.fence = fence,
 			.signaled_value = vk_fence.get_signaled_value(),
-			.stage = SYNC_STAGE::NONE,
+			.stage = sync_stage,
 		});
 	}
 	return vk_wait_fences;
 }
 
-std::vector<vulkan_queue::signal_fence_t> vulkan_queue::encode_signal_fences(const std::vector<device_fence*>& signal_fences) {
+std::vector<vulkan_queue::signal_fence_t> vulkan_queue::encode_signal_fences(const std::vector<device_fence*>& signal_fences,
+																			 const SYNC_STAGE sync_stage) {
 	std::vector<signal_fence_t> vk_signal_fences;
 	for (auto& fence : signal_fences) {
 		if (!fence) {
@@ -679,7 +685,7 @@ std::vector<vulkan_queue::signal_fence_t> vulkan_queue::encode_signal_fences(con
 			.fence = fence,
 			.unsignaled_value = vk_fence.get_unsignaled_value(),
 			.signaled_value = vk_fence.get_signaled_value(),
-			.stage = SYNC_STAGE::NONE,
+			.stage = sync_stage,
 		});
 	}
 	return vk_signal_fences;

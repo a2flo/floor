@@ -24,13 +24,9 @@
 #include <floor/device/device.hpp>
 #include <floor/core/flat_map.hpp>
 #include <floor/device/graphics_renderer.hpp>
+#include <floor/device/vulkan/vulkan_pipeline.hpp>
 
 namespace fl {
-
-//! -> vulkan_pipeline.hpp
-struct vulkan_pipeline_state_t;
-//! -> vulkan_pass.hpp
-class vulkan_pass;
 
 class vulkan_indirect_command_pipeline final : public indirect_command_pipeline {
 public:
@@ -146,12 +142,9 @@ public:
 	
 protected:
 	const vulkan_indirect_command_pipeline::vulkan_pipeline_entry& pipeline_entry;
-	const vulkan_pipeline_state_t* pipeline_state { nullptr };
+	vulkan_pipeline_state_t pipeline_state {};
+	vulkan_pipeline::pipeline_key_t pipeline_key {};
 	const uint32_t command_idx { 0u };
-	const device_function::function_entry* vs { nullptr };
-	const device_function::function_entry* fs { nullptr };
-	const device_function::function_entry* ts { nullptr };
-	const device_function::function_entry* ms { nullptr };
 	const vulkan_pass* pass { nullptr };
 	
 	//! cmd buffer in "secondary_cmd_buffers"
@@ -166,7 +159,8 @@ protected:
 	std::vector<device_function_arg> implicit_args;
 	
 	void draw_internal(const graphics_renderer::multi_draw_entry* draw_entry,
-					   const graphics_renderer::multi_draw_indexed_entry* draw_index_entry);
+					   const graphics_renderer::multi_draw_indexed_entry* draw_index_entry,
+					   const graphics_renderer::mesh_draw_entry* draw_mesh_entry);
 	
 };
 

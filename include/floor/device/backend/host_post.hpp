@@ -104,7 +104,10 @@ struct mesh {
 	
 	//! sets the actual output sizes (primitive count and vertex count),
 	//! the vertex count defaults to the max specified vertex count of the mesh (max_vertex_count)
-	void set_output_size([[maybe_unused]] const uint32_t primitive_count, [[maybe_unused]] const uint32_t vertex_count = ~0u) const {
+	void set_output_size([[maybe_unused]] const uint32_t primitive_count) const {
+		assert(primitive_count <= max_primitive_count);
+	}
+	void set_output_size([[maybe_unused]] const uint32_t primitive_count, [[maybe_unused]] const uint32_t vertex_count) const {
 		assert(primitive_count <= max_primitive_count);
 		assert(vertex_count == ~0u || vertex_count <= max_primitive_count);
 	}

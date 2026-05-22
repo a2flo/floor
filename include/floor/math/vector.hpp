@@ -1141,6 +1141,18 @@ public:
 		return FLOOR_VEC_EXPAND_DUAL(vec., *, +);
 	}
 	
+	//! computes "a * b - c * d" with better numeric stability
+	//! ref: https://pharr.org/matt/blog/2019/11/03/difference-of-floats
+	//! ref: https://people.eecs.berkeley.edu/~wkahan/Qdrtcs.pdf
+	template <typename fp_type = scalar_type> requires(ext::is_floating_point_v<fp_type>)
+	static constexpr inline scalar_type diff_of_products(const decayed_scalar_type a, const decayed_scalar_type b,
+														 const decayed_scalar_type c, const decayed_scalar_type d) {
+		const auto cd = c * d;
+		const auto err = vector_helper<decayed_scalar_type>::fma(-c, d, cd);
+		const auto dop = vector_helper<decayed_scalar_type>::fma(a, b, -cd);
+		return dop + err;
+	}
+	
 #if FLOOR_VECTOR_WIDTH == 2
 	//! sets this vector to a vector perpendicular to this vector (-90° rotation)
 	constexpr vector_type& perpendicular() {
@@ -1166,6 +1178,23 @@ public:
 			y * vec.z - z * vec.y,
 			z * vec.x - x * vec.z,
 			x * vec.y - y * vec.x
+		};
+	}
+	//! sets this vector to the cross product of this vector with another vector
+	//! NOTE: better numeric stability, but a slightly higher computational cost
+	template <typename fp_type = scalar_type> requires(ext::is_floating_point_v<fp_type>)
+	constexpr vector_type& cross_kahan(const vector_type& vec) {
+		*this = crossed_kahan(vec);
+		return *this;
+	}
+	//! computes the cross product of this vector with another vector
+	//! NOTE: better numeric stability, but a slightly higher computational cost
+	template <typename fp_type = scalar_type> requires(ext::is_floating_point_v<fp_type>)
+	constexpr vector_type crossed_kahan(const vector_type& vec) const {
+		return {
+			diff_of_products(y, vec.z, z, vec.y),
+			diff_of_products(z, vec.x, x, vec.z),
+			diff_of_products(x, vec.y, y, vec.x)
 		};
 	}
 #endif

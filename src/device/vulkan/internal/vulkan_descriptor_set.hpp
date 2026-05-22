@@ -21,7 +21,8 @@
 #include <floor/core/essentials.hpp>
 
 #if !defined(FLOOR_NO_VULKAN)
-#include <floor/threading/safe_resource_container.hpp>
+#include <span>
+#include <floor/threading/resource_slot_handler.hpp>
 #include <floor/core/flat_map.hpp>
 
 namespace fl {
@@ -32,13 +33,17 @@ class device_buffer;
 //! a thread-safe container of multiple descriptor buffers of the same type (enabling multi-threaded descriptor buffer usage)
 class vulkan_descriptor_buffer_container {
 public:
-	//! amount of contained descriptor buffer
-	static constexpr const uint32_t descriptor_count { 16u };
+	//! amount of contained descriptor buffers
+	static constexpr const uint32_t instance_count { 16u };
 	
 	//! { Vulkan buffer, mapped host memory }
 	using resource_type = std::pair<std::shared_ptr<device_buffer>, std::span<uint8_t>>;
+	using slot_container_type = resource_slot_container<resource_type, instance_count>;
+	static constexpr const uint8_t invalid_slot_idx { slot_container_type::slot_handler_t::invalid_slot_idx };
 	
-	vulkan_descriptor_buffer_container(std::array<resource_type, descriptor_count>&& desc_bufs_) : descriptor_buffers(std::move(desc_bufs_)) {}
+	vulkan_descriptor_buffer_container(std::array<resource_type, instance_count>&& desc_bufs_) {
+		descriptor_buffers.resources = std::move(desc_bufs_);
+	}
 	
 	//! acquire a descriptor buffer instance
 	//! NOTE: the returned object is a RAII object that will automatically call release_descriptor_buffer on destruction
@@ -49,7 +54,7 @@ public:
 	void release_descriptor_buffer(descriptor_buffer_instance_t& instance);
 	
 protected:
-	safe_resource_container<resource_type, descriptor_count> descriptor_buffers;
+	slot_container_type descriptor_buffers;
 	
 };
 
@@ -64,7 +69,7 @@ struct descriptor_buffer_instance_t {
 	constexpr descriptor_buffer_instance_t() noexcept {}
 	
 	descriptor_buffer_instance_t(const device_buffer* desc_buffer_, std::span<uint8_t> mapped_host_memory_,
-								 const uint32_t& index_, vulkan_descriptor_buffer_container* container_) :
+								 const uint8_t index_, vulkan_descriptor_buffer_container* container_) :
 	desc_buffer(desc_buffer_), mapped_host_memory(mapped_host_memory_), index(index_), container(container_) {}
 	
 	descriptor_buffer_instance_t(descriptor_buffer_instance_t&& instance) : desc_buffer(instance.desc_buffer), mapped_host_memory(instance.mapped_host_memory), index(instance.index), container(instance.container) {
@@ -74,7 +79,8 @@ struct descriptor_buffer_instance_t {
 		instance.container = nullptr;
 	}
 	descriptor_buffer_instance_t& operator=(descriptor_buffer_instance_t&& instance) {
-		assert(desc_buffer == nullptr && mapped_host_memory.size() > 0 && index == ~0u && container == nullptr);
+		assert(desc_buffer == nullptr && mapped_host_memory.size() > 0 &&
+			   index == vulkan_descriptor_buffer_container::invalid_slot_idx && container == nullptr);
 		std::swap(desc_buffer, instance.desc_buffer);
 		std::swap(mapped_host_memory, instance.mapped_host_memory);
 		std::swap(index, instance.index);
@@ -84,7 +90,7 @@ struct descriptor_buffer_instance_t {
 	
 	~descriptor_buffer_instance_t() {
 		if (desc_buffer != nullptr && container != nullptr) {
-			assert(index != ~0u);
+			assert(index != vulkan_descriptor_buffer_container::invalid_slot_idx);
 			container->release_descriptor_buffer(*this);
 		}
 	}
@@ -94,7 +100,7 @@ struct descriptor_buffer_instance_t {
 	
 protected:
 	//! index of this resource in the parent container (needed for auto-release)
-	uint32_t index { ~0u };
+	uint8_t index { vulkan_descriptor_buffer_container::invalid_slot_idx };
 	//! pointer to the parent container (needed for auto-release)
 	vulkan_descriptor_buffer_container* container { nullptr };
 };

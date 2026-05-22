@@ -182,7 +182,7 @@ std::shared_ptr<vulkan_encoder> vulkan_function::create_encoder(const device_que
 																const vulkan_command_buffer& cmd_buffer,
 																const VkPipeline pipeline,
 																const VkPipelineLayout pipeline_layout,
-																const std::vector<const vulkan_function_entry*>& entries,
+																const std::vector<vulkan_function_entry*>& entries,
 																const char* debug_label floor_unused_if_release,
 																bool& success) const {
 	success = false;
@@ -300,7 +300,7 @@ void vulkan_function::execute(const device_queue& cqueue,
 	grid_dim.max(1u);
 	
 	// create + begin the command buffer for this function execution
-	auto cmd_buffer = vk_queue.make_command_buffer("encoder");
+	auto cmd_buffer = vk_queue.make_command_buffer(debug_label ?: "kernel");
 	if (!cmd_buffer) {
 		return; // just abort
 	}
@@ -313,7 +313,7 @@ void vulkan_function::execute(const device_queue& cqueue,
 	VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info), "failed to begin command buffer")
 	
 	// create the encoder for this function execution
-	const std::vector<const vulkan_function_entry*> shader_entries {
+	const std::vector<vulkan_function_entry*> shader_entries {
 		function_iter->second.get()
 	};
 	bool encoder_success = false;
@@ -340,16 +340,18 @@ void vulkan_function::execute(const device_queue& cqueue,
 	}
 	
 	// acquire function descriptor sets/buffers and constant buffer
-	const auto& entry = *function_iter->second;
+	auto& entry = *function_iter->second;
 	if (entry.desc_buffer.desc_buffer_container) {
 		encoder->acquired_descriptor_buffers.emplace_back(entry.desc_buffer.desc_buffer_container->acquire_descriptor_buffer());
-		if (entry.constant_buffers) {
-			encoder->acquired_constant_buffers.emplace_back(entry.constant_buffers->acquire());
-			encoder->constant_buffer_mappings.emplace_back(entry.constant_buffer_mappings[encoder->acquired_constant_buffers.back().second]);
+		if (entry.has_constant_buffers()) {
+			auto acq_const_buf = entry.constant_buffers.acquire_resource_no_auto_release();
+			assert(acq_const_buf.res != nullptr);
+			encoder->acquired_constant_buffers.emplace_back(*acq_const_buf.res, acq_const_buf.index());
+			encoder->constant_buffer_mappings.emplace_back(entry.constant_buffer_mappings[acq_const_buf.index()]);
 			encoder->constant_buffer_wrappers.emplace_back(vulkan_args::constant_buffer_wrapper_t {
-				&entry.constant_buffer_info,
-				encoder->acquired_constant_buffers.back().first,
-				{ (uint8_t*)encoder->constant_buffer_mappings.back(), encoder->acquired_constant_buffers.back().first->get_size() }
+				.constant_buffer_info = &entry.constant_buffer_info,
+				.constant_buffer_storage = *acq_const_buf.res,
+				.constant_buffer_mapping = { (uint8_t*)encoder->constant_buffer_mappings.back(), (*acq_const_buf.res)->get_size() }
 			});
 		} else {
 			encoder->constant_buffer_wrappers.emplace_back(vulkan_args::constant_buffer_wrapper_t {});
@@ -378,13 +380,13 @@ void vulkan_function::execute(const device_queue& cqueue,
 		if (cqueue.get_queue_type() == device_queue::QUEUE_TYPE::COMPUTE) {
 			// if this is a compute-only queue, we need to rewrite all VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT stage masks
 			for (auto& bar : transition_info.barriers) {
-				if ((bar.srcStageMask & VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT) != 0) {
-					bar.srcStageMask = ((bar.srcStageMask & ~VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT) |
+				if ((bar.srcStageMask & vk_dev.pipeline_stage_all_graphics) != 0) {
+					bar.srcStageMask = ((bar.srcStageMask & ~vk_dev.pipeline_stage_all_graphics) |
 										VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
 										VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT);
 				}
-				if ((bar.dstStageMask & VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT) != 0) {
-					bar.dstStageMask = ((bar.dstStageMask & ~VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT) |
+				if ((bar.dstStageMask & vk_dev.pipeline_stage_all_graphics) != 0) {
+					bar.dstStageMask = ((bar.dstStageMask & ~vk_dev.pipeline_stage_all_graphics) |
 										VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT |
 										VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT);
 				}
@@ -483,34 +485,35 @@ void vulkan_function::execute(const device_queue& cqueue,
 		});
 	}
 	
-	auto wait_fences = vulkan_queue::encode_wait_fences(wait_fences_);
-	auto signal_fences = vulkan_queue::encode_signal_fences(signal_fences_);
+	auto wait_fences = vulkan_queue::encode_wait_fences(wait_fences_, SYNC_STAGE::KERNEL);
+	auto signal_fences = vulkan_queue::encode_signal_fences(signal_fences_, SYNC_STAGE::KERNEL);
 	encoder->cmd_buffer = nullptr; // must no longer be referenced after this
 	vk_queue.submit_command_buffer(std::move(cmd_buffer),
 								   std::move(wait_fences), std::move(signal_fences),
-								   [encoder](const vulkan_command_buffer&) {
-		// retain encoder until completion
-	}, wait_until_completion || is_soft_printf /* must block when soft-print is used */);
-	
-	// release all acquired descriptor sets/buffers and constant buffers again
-	for (auto& desc_buf_instance : encoder->acquired_descriptor_buffers) {
-		entry.desc_buffer.desc_buffer_container->release_descriptor_buffer(desc_buf_instance);
-	}
-	encoder->acquired_descriptor_buffers.clear();
-	for (auto& acq_constant_buffer : encoder->acquired_constant_buffers) {
-		entry.constant_buffers->release(acq_constant_buffer);
-	}
-	
-	// if soft-printf is being used, read-back results
-	if (is_soft_printf) {
-		auto cpu_printf_buffer = std::make_unique<uint32_t[]>(printf_buffer_size / 4);
-		printf_buffer->read(cqueue, cpu_printf_buffer.get());
-		handle_printf_buffer(std::span { cpu_printf_buffer.get(), printf_buffer_size / 4 });
-	}
+								   [encoder /* retain encoder until completion */,
+									is_soft_printf, printf_buffer, dev = &vk_dev,
+									func_entry = &entry](const vulkan_command_buffer&) {
+		// if soft-printf is being used, read-back results
+		if (is_soft_printf) {
+			const auto default_queue = ((const vulkan_context*)dev->context)->get_device_default_queue(*dev);
+			auto cpu_printf_buffer = std::make_unique<uint32_t[]>(printf_buffer_size / 4);
+			printf_buffer->read(*default_queue, cpu_printf_buffer.get());
+			handle_printf_buffer(std::span { cpu_printf_buffer.get(), printf_buffer_size / 4 });
+		}
+		
+		// release all acquired descriptor sets/buffers and constant buffers again after completion
+		for (auto& desc_buf_instance : encoder->acquired_descriptor_buffers) {
+			func_entry->desc_buffer.desc_buffer_container->release_descriptor_buffer(desc_buf_instance);
+		}
+		encoder->acquired_descriptor_buffers.clear();
+		for (auto& acq_constant_buffer : encoder->acquired_constant_buffers) {
+			func_entry->constant_buffers.release_resource(acq_constant_buffer.second);
+		}
+	}, wait_until_completion || is_soft_printf /* must block when soft-printf is used */);
 }
 
 bool vulkan_function::set_and_handle_arguments(const bool is_shader, vulkan_encoder& encoder,
-											   const std::vector<const vulkan_function_entry*>& shader_entries,
+											   const std::vector<vulkan_function_entry*>& shader_entries,
 											   const std::vector<device_function_arg>& args,
 											   const std::vector<device_function_arg>& implicit_args,
 											   vulkan_args::transition_info_t& transition_info) const {
@@ -574,6 +577,13 @@ bool vulkan_function::set_and_handle_arguments(const bool is_shader, vulkan_enco
 }
 
 const device_function::function_entry* vulkan_function::get_function_entry(const device& dev) const {
+	if (const auto iter = functions.find((const vulkan_device*)&dev); iter != functions.end()) {
+		return iter->second.get();
+	}
+	return nullptr;
+}
+
+vulkan_function_entry* vulkan_function::get_mutable_function_entry(const device& dev) const {
 	if (const auto iter = functions.find((const vulkan_device*)&dev); iter != functions.end()) {
 		return iter->second.get();
 	}

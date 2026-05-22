@@ -29,6 +29,8 @@ namespace fl {
 //! synchronization stages (e.g. for fences)
 enum class SYNC_STAGE : uint32_t {
 	NONE						= 0u,
+	ALL							= (~0u),
+	
 	VERTEX						= (1u << 0u),
 	TESSELLATION				= (1u << 1u),
 	TASK						= (1u << 2u),
@@ -37,10 +39,13 @@ enum class SYNC_STAGE : uint32_t {
 	
 	//! mostly Vulkan-specific sync stage (on Metal this aliases FRAGMENT)
 	COLOR_ATTACHMENT_OUTPUT		= (1u << 5u),
-	//! Vulkan-specific sync stage
-	TOP_OF_PIPE					= (1u << 6u),
-	//! Vulkan-specific sync stage
-	BOTTOM_OF_PIPE				= (1u << 7u),
+	// obsolete = (1u << 6u)
+	// obsolete = (1u << 7u)
+	
+	//! NOTE: only used internally for Vulkan
+	KERNEL						= (1u << 8u),
+	//! NOTE: only used internally for Vulkan
+	BLIT						= (1u << 9u),
 };
 floor_global_enum_ext(SYNC_STAGE)
 

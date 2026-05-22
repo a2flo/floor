@@ -45,10 +45,6 @@ device_fence(debug_label_), dev(dev_), is_binary(create_binary_sema) {
 	VK_CALL_ERR_EXEC(vkCreateSemaphore(vk_dev.device, &create_info, nullptr, &semaphore),
 					 "failed to create Vulkan semaphore", throw std::runtime_error("failed to create Vulkan semaphore");)
 	
-	if (is_binary) {
-		signal_value = 1; // always 1 for binary semas
-	}
-	
 	if (debug_label_) {
 		set_debug_label(debug_label);
 	}
@@ -75,10 +71,8 @@ bool vulkan_fence::next_signal_value() {
 		return false;
 	}
 	
-	const auto& vk_dev = (const vulkan_device&)dev;
-	VK_CALL_RET(vkGetSemaphoreCounterValue(vk_dev.device, semaphore, &last_value),
-				"failed to query semaphore value", false)
-	signal_value = last_value + 1;
+	last_value = signal_value;
+	++signal_value;
 	return true;
 }
 

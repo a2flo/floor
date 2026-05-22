@@ -538,6 +538,7 @@ program_data compile_input(const std::string& input,
 				 " -Xclang -vulkan-low-descriptor-set-count" : "") +
 				(options.vulkan.pointer_workarounds ? " -Xclang -vulkan-ptr-workarounds" : "") +
 				(vk_device.untyped_pointers_support ? " -Xclang -vulkan-untyped-pointers" : "") +
+				(vk_device.mesh_shading_support ? " -Xclang -vulkan-mesh-shading" : "") +
 				" -DFLOOR_DEVICE_VULKAN" \
 				" -DFLOOR_DEVICE_SPIRV" \
 				" -DFLOOR_DEVICE_NO_DOUBLE"

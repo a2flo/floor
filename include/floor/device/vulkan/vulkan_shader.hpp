@@ -55,8 +55,8 @@ public:
 											const vulkan_command_buffer& cmd_buffer,
 											const VkPipeline pipeline,
 											const VkPipelineLayout pipeline_layout,
-											const vulkan_function_entry* vertex_shader,
-											const vulkan_function_entry* fragment_shader,
+											vulkan_function_entry* vertex_shader,
+											vulkan_function_entry* fragment_shader,
 											const std::span<const graphics_renderer::multi_draw_entry> draw_entries,
 											const std::span<const graphics_renderer::multi_draw_indexed_entry> draw_indexed_entries,
 											const std::vector<device_function_arg>& args) const;
@@ -68,8 +68,8 @@ public:
 											const vulkan_command_buffer& cmd_buffer,
 											const VkPipeline pipeline,
 											const VkPipelineLayout pipeline_layout,
-											const vulkan_function_entry* vertex_shader,
-											const vulkan_function_entry* fragment_shader,
+											vulkan_function_entry* vertex_shader,
+											vulkan_function_entry* fragment_shader,
 											const std::span<const graphics_renderer::multi_draw_entry> draw_entries,
 											const std::span<const graphics_renderer::multi_draw_indexed_entry> draw_indexed_entries,
 											Args&&... args) const {
@@ -83,9 +83,9 @@ public:
 											const vulkan_command_buffer& cmd_buffer,
 											const VkPipeline pipeline,
 											const VkPipelineLayout pipeline_layout,
-											const vulkan_function_entry* task_shader,
-											const vulkan_function_entry* mesh_shader,
-											const vulkan_function_entry* fragment_shader,
+											vulkan_function_entry* task_shader,
+											vulkan_function_entry* mesh_shader,
+											vulkan_function_entry* fragment_shader,
 											const graphics_renderer::mesh_draw_entry& draw_entry,
 											const std::vector<device_function_arg>& args) const;
 	

@@ -68,7 +68,7 @@ vulkan_memory((const vulkan_device&)cqueue.get_device(), &image, flags), is_exte
 }
 
 vulkan_image::~vulkan_image() {
-	auto vulkan_dev = ((const vulkan_device&)dev).device;
+	auto vulkan_dev = vk_dev.device;
 	
 	if (!is_external) {
 		if (image_view != nullptr) {
@@ -123,7 +123,7 @@ bool vulkan_image::zero(const device_queue& cqueue) {
 			const auto restore_layout = internal.image_info.imageLayout;
 			
 			internal.transition(&cqueue, block_cmd_buffer.cmd_buffer, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-								VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+								vk_dev.pipeline_stage_all_graphics, vk_dev.pipeline_stage_all_graphics);
 			
 			VkImageSubresourceRange zero_range {
 				.aspectMask = vk_aspect_flags_from_type(image_type),
@@ -146,7 +146,7 @@ bool vulkan_image::zero(const device_queue& cqueue) {
 			}
 			
 			internal.transition(&cqueue, block_cmd_buffer.cmd_buffer, restore_access_mask, restore_layout,
-								VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+								vk_dev.pipeline_stage_all_graphics, vk_dev.pipeline_stage_all_graphics);
 		}), false /* return false on error */, true /* always blocking */);
 	} else {
 		// create or retrieve a clear render pass for this image type + device
@@ -276,7 +276,7 @@ bool vulkan_image::zero(const device_queue& cqueue) {
 		}), false /* return false on error */, true /* always blocking */);
 		
 		// cleanup
-		vkDestroyFramebuffer(((const vulkan_device&)dev).device, framebuffer, nullptr);
+		vkDestroyFramebuffer(vk_dev.device, framebuffer, nullptr);
 	}
 	
 	return true;
@@ -303,8 +303,8 @@ bool vulkan_image::blit_internal(const bool is_async, const device_queue& cqueue
 	std::vector<vulkan_queue::wait_fence_t> vk_wait_fences;
 	std::vector<vulkan_queue::signal_fence_t> vk_signal_fences;
 	if (is_async) {
-		vk_wait_fences = vulkan_queue::encode_wait_fences(wait_fences);
-		vk_signal_fences = vulkan_queue::encode_signal_fences(signal_fences);
+		vk_wait_fences = vulkan_queue::encode_wait_fences(wait_fences, SYNC_STAGE::BLIT);
+		vk_signal_fences = vulkan_queue::encode_signal_fences(signal_fences, SYNC_STAGE::BLIT);
 	}
 	
 	const auto dim_count = image_dim_count(image_type);
@@ -326,10 +326,10 @@ bool vulkan_image::blit_internal(const bool is_async, const device_queue& cqueue
 			auto& vk_mutable_src = const_cast<vulkan_image_internal&>(vk_src);
 			vk_mutable_src.transition(&cqueue, block_cmd_buffer.cmd_buffer, VK_ACCESS_2_TRANSFER_READ_BIT,
 									  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-									  VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+									  vk_dev.pipeline_stage_all_graphics, vk_dev.pipeline_stage_all_graphics);
 		}
 		internal.transition(&cqueue, block_cmd_buffer.cmd_buffer, VK_ACCESS_2_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-							VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+							vk_dev.pipeline_stage_all_graphics, vk_dev.pipeline_stage_all_graphics);
 		
 		VkImageAspectFlags aspect_mask = vk_aspect_flags_from_type(image_type);
 		
@@ -381,12 +381,12 @@ bool vulkan_image::blit_internal(const bool is_async, const device_queue& cqueue
 		vkCmdBlitImage2(block_cmd_buffer.cmd_buffer, &blit_info);
 		
 		internal.transition(&cqueue, block_cmd_buffer.cmd_buffer, restore_access_mask, restore_layout,
-							VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+							vk_dev.pipeline_stage_all_graphics, vk_dev.pipeline_stage_all_graphics);
 		
 		if (src_needs_transition) {
 			auto& vk_mutable_src = const_cast<vulkan_image_internal&>(vk_src);
 			vk_mutable_src.transition(&cqueue, block_cmd_buffer.cmd_buffer, src_restore_access_mask, src_restore_layout,
-									  VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+									  vk_dev.pipeline_stage_all_graphics, vk_dev.pipeline_stage_all_graphics);
 		}
 	}), false /* return false on error */, !is_async /* blocking if not async */, std::move(vk_wait_fences), std::move(vk_signal_fences));
 	

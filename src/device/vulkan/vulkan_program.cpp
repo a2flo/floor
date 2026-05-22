@@ -59,6 +59,10 @@ static std::optional<vulkan_descriptor_set_layout_t> build_descriptor_set_layout
 		
 		layout.bindings.push_back({});
 		auto& binding = layout.bindings.back();
+		const auto ignore_arg = [&layout] {
+			// ignore + compact
+			layout.bindings.pop_back();
+		};
 		
 		binding.binding = binding_idx;
 		binding.descriptorCount = 1;
@@ -158,17 +162,22 @@ static std::optional<vulkan_descriptor_set_layout_t> build_descriptor_set_layout
 					}
 					break;
 				case ARG_ADDRESS_SPACE::LOCAL:
-					log_error("arg with a local address space is not supported (arg #$ in $)", i, func_name);
-					valid_desc = false;
+					if (!has_flag<ARG_FLAG::MESH_GRID_PROPERTIES>(arg.flags)) {
+						log_error("arg with a local address space is not supported (arg #$ in $)", i, func_name);
+						valid_desc = false;
+					} else {
+						ignore_arg();
+						continue;
+					}
 					break;
 				case ARG_ADDRESS_SPACE::TASK_PAYLOAD:
 				case ARG_ADDRESS_SPACE::MESH:
 					// no handling necessary
-					break;
+					ignore_arg();
+					continue;
 				case ARG_ADDRESS_SPACE::UNKNOWN:
-					if (has_flag<ARG_FLAG::STAGE_INPUT>(arg.flags)) {
-						// ignore + compact
-						layout.bindings.pop_back();
+					if (has_any_flag<ARG_FLAG::NON_USER_ARG>(arg.flags)) {
+						ignore_arg();
 						continue;
 					}
 					log_error("arg with an unknown address space (arg #$ in $)", i, func_name);
@@ -239,11 +248,11 @@ static bool allocate_constant_buffers(vulkan_function_entry& entry,
 	assert(dev_queue != nullptr);
 	
 	// we need to allocate as many buffers as we have descriptor sets
-	std::array<device_buffer*, vulkan_descriptor_buffer_container::descriptor_count> constant_buffers;
+	std::array<device_buffer*, vulkan_descriptor_buffer_container::instance_count> constant_buffers;
 #if defined(FLOOR_DEBUG)
 	std::string const_buffer_label_stem = "const_buf:" + func_name + "#";
 #endif
-	for (uint32_t buf_idx = 0; buf_idx < vulkan_descriptor_buffer_container::descriptor_count; ++buf_idx) {
+	for (uint32_t buf_idx = 0; buf_idx < vulkan_descriptor_buffer_container::instance_count; ++buf_idx) {
 		// allocate in device-local/host-coherent memory
 #if defined(FLOOR_DEBUG)
 		const std::string constants_debug_label = const_buffer_label_stem + std::to_string(buf_idx);
@@ -266,7 +275,7 @@ static bool allocate_constant_buffers(vulkan_function_entry& entry,
 		}
 		constant_buffers[buf_idx] = entry.constant_buffers_storage[buf_idx].get();
 	}
-	entry.constant_buffers = std::make_unique<safe_resource_container<device_buffer*, vulkan_descriptor_buffer_container::descriptor_count>>(std::move(constant_buffers));
+	entry.constant_buffers.resources = std::move(constant_buffers);
 	
 	return true;
 }
@@ -303,8 +312,8 @@ static bool create_function_entry_descriptor_buffer(vulkan_function_entry& entry
 		}
 		
 		// allocate descriptor buffers
-		std::array<vulkan_descriptor_buffer_container::resource_type, vulkan_descriptor_buffer_container::descriptor_count> desc_buffers;
-		for (uint32_t buf_idx = 0; buf_idx < vulkan_descriptor_buffer_container::descriptor_count; ++buf_idx) {
+		std::array<vulkan_descriptor_buffer_container::resource_type, vulkan_descriptor_buffer_container::instance_count> desc_buffers;
+		for (uint32_t buf_idx = 0; buf_idx < vulkan_descriptor_buffer_container::instance_count; ++buf_idx) {
 			// alloc with Vulkan flags: need host-visible/host-coherent and descriptor buffer usage flags
 			const std::string desc_buffer_debug_label = "desc_buf:" + func_name + "#" + std::to_string(buf_idx);
 			desc_buffers[buf_idx].first = vk_ctx.create_buffer(*dev_queue, entry.desc_buffer.layout_size_in_bytes,
@@ -446,10 +455,8 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 					entry->stage_info = VkPipelineShaderStageCreateInfo {
 						.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 						.pNext = &entry->shader_module_info,
-						// NOTE: only valid for compute kernels (or mesh/task) + only when the used local size X dim is a multiple of the SIMD width
-						.flags = ((info.type == FUNCTION_TYPE::KERNEL ||
-								   info.type == FUNCTION_TYPE::TASK ||
-								   info.type == FUNCTION_TYPE::MESH) &&
+						// NOTE: only valid for compute kernels + only when the used local size X dim is a multiple of the SIMD width
+						.flags = (info.type == FUNCTION_TYPE::KERNEL &&
 								  (entry->max_local_size.x % entry->stage_sub_group_info.requiredSubgroupSize) == 0u ?
 								  VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT : 0),
 						.stage = stage,
@@ -534,7 +541,7 @@ vulkan_program::~vulkan_program() {
 			const auto dev_queue = func.first->context->get_device_default_queue(*func.first);
 			
 			if (!entry.constant_buffer_info.empty()) {
-				for (uint32_t buf_idx = 0; buf_idx < vulkan_descriptor_buffer_container::descriptor_count; ++buf_idx) {
+				for (uint32_t buf_idx = 0; buf_idx < vulkan_descriptor_buffer_container::instance_count; ++buf_idx) {
 					if (entry.constant_buffer_mappings[buf_idx]) {
 						entry.constant_buffers_storage[buf_idx]->unmap(*dev_queue, entry.constant_buffer_mappings[buf_idx], true /* discard */);
 					}

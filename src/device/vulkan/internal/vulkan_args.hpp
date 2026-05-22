@@ -440,15 +440,16 @@ arg_pre_handler(const std::vector<std::span<uint8_t>>& mapped_host_desc_data,
 	const constant_buffer_wrapper_t* const_buf = nullptr;
 	std::span<uint8_t> host_desc_data = mapped_host_desc_data[0];
 	for (;;) {
+		if (idx.entry >= entries.size()) {
+			log_error("function entry is out-of-bounds");
+			return { nullptr, nullptr, nullptr, {} };
+		}
+		
 		// get the next non-nullptr entry or use the current one if it's valid
 		while (entries[idx.entry] == nullptr) {
 			++idx.entry;
 			if (idx.entry >= entries.size()) {
-#if defined(FLOOR_DEBUG)
-				throw std::runtime_error("function out of bounds");
-#else
-				log_error("function entry out of bounds");
-#endif
+				log_error("function entry is out-of-bounds");
 				return { nullptr, nullptr, nullptr, {} };
 			}
 		}

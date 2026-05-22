@@ -230,7 +230,7 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 		wait_fences.emplace_back(vulkan_queue::wait_fence_t {
 			.fence = cur_drawable->vk_drawable->acquisition_sema,
 			.signaled_value = 1,
-			.stage = SYNC_STAGE::TOP_OF_PIPE,
+			.stage = SYNC_STAGE::ALL,
 		});
 		// present will be performed after the final submit -> need to signal when the submit has finished and the present can start
 		signal_fences.emplace_back(vulkan_queue::signal_fence_t {
@@ -535,11 +535,11 @@ bool vulkan_renderer::set_attachments(std::vector<attachment_t>& attachments) {
 }
 
 static inline bool attachment_transition(device_image& img, std::vector<VkImageMemoryBarrier2>& att_transition_barriers,
-										 const bool is_read_only = false) {
+										 const bool is_read_only = false, const bool is_read_write = false) {
 	auto vk_img = (vulkan_image_internal*)img.get_underlying_vulkan_image_safe();
 	if (!is_read_only) {
 		// make attachment writable
-		auto [needs_transition, barrier] = vk_img->transition_write(nullptr, nullptr, false, false, false, true /* soft_transition */);
+		auto [needs_transition, barrier] = vk_img->transition_write(nullptr, nullptr, is_read_write, false, false, true /* soft_transition */);
 		if (needs_transition) {
 			att_transition_barriers.emplace_back(std::move(barrier));
 		}
@@ -564,9 +564,23 @@ bool vulkan_renderer::set_attachment(const uint32_t& index, attachment_t& attach
 	}
 	
 	const auto is_read_only_color = cur_pipeline->get_description(multi_view).color_attachments[index].blend.write_mask.none();
-	auto ret = attachment_transition(*attachment.image, att_transition_barriers, is_read_only_color);
+	auto is_read_write_color = false;
+	if (!is_read_only_color) {
+		for (uint32_t pass_at_idx = 0u; const auto& pass_att : pass.get_description(multi_view).attachments) {
+			if (!has_flag<IMAGE_TYPE::FLAG_DEPTH>(pass_att.format)) {
+				if (pass_at_idx == index) {
+					if (pass_att.load_op == LOAD_OP::LOAD) {
+						is_read_write_color = true;
+					}
+					break;
+				}
+				++pass_at_idx;
+			}
+		}
+	}
+	auto ret = attachment_transition(*attachment.image, att_transition_barriers, is_read_only_color, is_read_write_color);
 	if (ret && attachment.resolve_image) {
-		ret |= attachment_transition(*attachment.resolve_image, att_transition_barriers, false);
+		ret |= attachment_transition(*attachment.resolve_image, att_transition_barriers, false, false);
 	}
 	return ret;
 }
@@ -576,7 +590,18 @@ bool vulkan_renderer::set_depth_attachment(attachment_t& attachment) {
 		return false;
 	}
 	const auto is_read_only_depth = !cur_pipeline->get_description(multi_view).depth.write;
-	return attachment_transition(*attachment.image, att_transition_barriers, is_read_only_depth);
+	auto is_read_write = false;
+	if (!is_read_only_depth) {
+		for (const auto& pass_att : pass.get_description(multi_view).attachments) {
+			if (has_flag<IMAGE_TYPE::FLAG_DEPTH>(pass_att.format)) {
+				if (pass_att.load_op == LOAD_OP::LOAD) {
+					is_read_write = true;
+				}
+				break;
+			}
+		}
+	}
+	return attachment_transition(*attachment.image, att_transition_barriers, is_read_only_depth, is_read_write);
 }
 
 void vulkan_renderer::execute_indirect(const indirect_command_pipeline& indirect_cmd) {
@@ -631,9 +656,10 @@ bool vulkan_renderer::switch_pipeline(const graphics_pipeline& pipeline_) {
 bool vulkan_renderer::update_vulkan_pipeline() {
 	const auto& dev = cqueue.get_device();
 	const auto& vk_pipeline = (const vulkan_pipeline&)*cur_pipeline;
-	vk_pipeline_state = vk_pipeline.get_vulkan_pipeline_state(dev, multi_view, false /* never indirect */);
-	if (vk_pipeline_state == nullptr) {
-		log_error("no pipeline entry for device $", dev.name);
+	vulkan_pipeline::pipeline_key_t pipeline_key {};
+	std::tie(vk_pipeline_state, pipeline_key) = vk_pipeline.get_or_create_pipeline_state(dev, multi_view, false /* never indirect */);
+	if (!vk_pipeline_state.is_valid()) {
+		log_error("no valid pipeline entry for device $", dev.name);
 		return false;
 	}
 	return true;
@@ -681,10 +707,10 @@ void vulkan_renderer::draw_internal(const std::span<const multi_draw_entry> draw
 	const auto vs = (const vulkan_shader*)cur_pipeline->get_description(multi_view).vertex_shader;
 	img_transition_barriers = vs->draw(cqueue,
 									   *cmd_buffer,
-									   vk_pipeline_state->pipeline,
-									   vk_pipeline_state->layout,
-									   (const vulkan_function_entry*)vk_pipeline_state->vs_entry,
-									   (const vulkan_function_entry*)vk_pipeline_state->fs_entry,
+									   vk_pipeline_state.pipeline,
+									   vk_pipeline_state.layout,
+									   vk_pipeline_state.vs_entry,
+									   vk_pipeline_state.fs_entry,
 									   draw_entries,
 									   draw_indexed_entries,
 									   args);
@@ -732,7 +758,12 @@ void vulkan_renderer::signal_fence(device_fence& fence, const SYNC_STAGE after_s
 
 void vulkan_renderer::switch_cull_mode(const CULL_MODE new_cull_mode) {
 	internal->cur_cull_mode = vulkan_cull_mode_from_cull_mode(new_cull_mode);
-	vkCmdSetCullMode(render_cmd_buffer.cmd_buffer, internal->cur_cull_mode);
+	// NOTE: if this is an indirect renderer (everything happens in secondary cmd buffers),
+	//       don't set the cull mode here, this will have had to be made in the originating
+	//       indirect pipelines, or will be made individually for each direct rendering call
+	if (!is_indirect) {
+		vkCmdSetCullMode(render_cmd_buffer.cmd_buffer, internal->cur_cull_mode);
+	}
 }
 
 } // namespace fl

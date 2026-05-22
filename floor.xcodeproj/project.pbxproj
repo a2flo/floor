@@ -670,7 +670,6 @@
 		5C6DCA742DB098AA00627453 /* atomic_shared_ptr.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = atomic_shared_ptr.hpp; path = include/floor/threading/atomic_shared_ptr.hpp; sourceTree = SOURCE_ROOT; };
 		5C6DCA752DB098AA00627453 /* atomic_spin_lock.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = atomic_spin_lock.hpp; path = include/floor/threading/atomic_spin_lock.hpp; sourceTree = SOURCE_ROOT; };
 		5C6DCA762DB098AA00627453 /* atomics.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = atomics.hpp; path = include/floor/threading/atomics.hpp; sourceTree = SOURCE_ROOT; };
-		5C6DCA772DB098AA00627453 /* safe_resource_container.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = safe_resource_container.hpp; path = include/floor/threading/safe_resource_container.hpp; sourceTree = SOURCE_ROOT; };
 		5C6DCA782DB098AA00627453 /* task.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = task.hpp; path = include/floor/threading/task.hpp; sourceTree = SOURCE_ROOT; };
 		5C6DCA792DB098AA00627453 /* thread_base.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = thread_base.hpp; path = include/floor/threading/thread_base.hpp; sourceTree = SOURCE_ROOT; };
 		5C6DCA7A2DB098AA00627453 /* thread_safety.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = thread_safety.hpp; path = include/floor/threading/thread_safety.hpp; sourceTree = SOURCE_ROOT; };
@@ -1291,7 +1290,6 @@
 				5C6DCA752DB098AA00627453 /* atomic_spin_lock.hpp */,
 				5C6DCA762DB098AA00627453 /* atomics.hpp */,
 				5C4BA14D2F48DFAC001435CF /* resource_slot_handler.hpp */,
-				5C6DCA772DB098AA00627453 /* safe_resource_container.hpp */,
 				5C6DCA782DB098AA00627453 /* task.hpp */,
 				5C6DC7132DB0958100627453 /* thread_base.cpp */,
 				5C6DCA792DB098AA00627453 /* thread_base.hpp */,

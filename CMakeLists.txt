@@ -257,7 +257,6 @@ add_library(${PROJECT_NAME}
 	include/floor/threading/atomic_spin_lock.hpp
 	include/floor/threading/atomics.hpp
 	include/floor/threading/resource_slot_handler.hpp
-	include/floor/threading/safe_resource_container.hpp
 	include/floor/threading/task.hpp
 	include/floor/threading/thread_base.hpp
 	include/floor/threading/thread_helpers.hpp
