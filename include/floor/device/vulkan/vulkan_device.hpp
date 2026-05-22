@@ -181,13 +181,13 @@ public:
 	//! feature support: mesh shading with multi-view rendering support (at least 4 layers/views)
 	bool mesh_shading_multi_view_support { false };
 	
+#if !defined(FLOOR_NO_VULKAN)
 	//! VK_PIPELINE_STAGE_2_ALL_GRAPHICS with actually all graphics bits, including task/mesh shaders if supported
 	VkFlags64 pipeline_stage_all_graphics { 0u };
 	//! VK_SHADER_STAGE_ALL_GRAPHICS with actually all graphics bits, including task/mesh shaders if supported
 	VkFlags shader_stage_all_graphics { 0u };
 	
 	// put these at the end, b/c they are rather large
-#if !defined(FLOOR_NO_VULKAN)
 	//! fixed sampler descriptor set
 	//! NOTE: this is allocated once at context creation
 	VkDescriptorSetLayout fixed_sampler_desc_set_layout { nullptr };
@@ -196,6 +196,8 @@ public:
 	//! NOTE: this is allocated once at context creation
 	std::vector<VkSampler> fixed_sampler_set;
 #else
+	uint64_t pipeline_stage_all_graphics { 0u };
+	uint32_t shader_stage_all_graphics { 0u };
 	uint64_t _fixed_sampler_desc_set_layout;
 	std::vector<uint64_t> _fixed_sampler_set;
 #endif
