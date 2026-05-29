@@ -105,6 +105,21 @@ public:
 					{ std::forward<Args>(args)... });
 	}
 	
+private:
+	template <bool is_mesh_shader>
+	std::vector<VkImageMemoryBarrier2> draw_internal(const device_queue& cqueue,
+													 const vulkan_command_buffer& cmd_buffer,
+													 vulkan_encoder& encoder,
+													 std::vector<vulkan_function_entry*>&& shader_entries,
+													 vulkan_function_entry* vertex_shader,
+													 vulkan_function_entry* task_shader,
+													 vulkan_function_entry* mesh_shader,
+													 vulkan_function_entry* fragment_shader,
+													 const std::span<const graphics_renderer::multi_draw_entry> draw_entries,
+													 const std::span<const graphics_renderer::multi_draw_indexed_entry> draw_indexed_entries,
+													 const graphics_renderer::mesh_draw_entry* draw_mesh_entry,
+													 const std::vector<device_function_arg>& args) const;
+	
 };
 
 } // namespace fl

@@ -84,12 +84,17 @@ protected:
 					   const std::span<const multi_draw_indexed_entry> draw_indexed_entries,
 					   const std::vector<device_function_arg>& args) override;
 	
+	void draw_mesh_internal(const mesh_draw_entry& draw_entry,
+							const std::vector<device_function_arg>& args) override;
+	
+	void vulkan_draw_internal(const std::span<const multi_draw_entry> draw_entries,
+							  const std::span<const multi_draw_indexed_entry> draw_indexed_entries,
+							  const mesh_draw_entry* draw_mesh_entry,
+							  const std::vector<device_function_arg>& args);
+	
 	[[noreturn]] void draw_patches_internal(const patch_draw_entry* draw_entry,
 											const patch_draw_indexed_entry* draw_indexed_entry,
 											const std::vector<device_function_arg>& args) override;
-	
-	[[noreturn]] void draw_mesh_internal(const mesh_draw_entry& draw_entry,
-										 const std::vector<device_function_arg>& args) override;
 	
 	bool update_vulkan_pipeline();
 	

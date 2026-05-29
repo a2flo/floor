@@ -730,7 +730,7 @@ void vulkan_indirect_render_command_encoder::draw_internal(const graphics_render
 			const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
 				.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
 				.pNext = nullptr,
-				.stageFlags = vk_dev.shader_stage_all_graphics,
+				.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
 				.layout = pipeline_state.layout,
 				.firstSet = (has_non_arg_buffer_arguments_vs ? 1 : 2),
 				.setCount = non_arg_buffer_set_count,
@@ -745,7 +745,7 @@ void vulkan_indirect_render_command_encoder::draw_internal(const graphics_render
 				const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
 					.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
 					.pNext = nullptr,
-					.stageFlags = vk_dev.shader_stage_all_graphics,
+					.stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT,
 					.layout = pipeline_state.layout,
 					.firstSet = 1,
 					.setCount = 1,
@@ -758,7 +758,7 @@ void vulkan_indirect_render_command_encoder::draw_internal(const graphics_render
 				const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
 					.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
 					.pNext = nullptr,
-					.stageFlags = vk_dev.shader_stage_all_graphics,
+					.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
 					.layout = pipeline_state.layout,
 					.firstSet = 2,
 					.setCount = 1,
@@ -771,7 +771,7 @@ void vulkan_indirect_render_command_encoder::draw_internal(const graphics_render
 				const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
 					.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
 					.pNext = nullptr,
-					.stageFlags = vk_dev.shader_stage_all_graphics,
+					.stageFlags = VK_SHADER_STAGE_MESH_BIT_EXT,
 					.layout = pipeline_state.layout,
 					.firstSet = 3,
 					.setCount = 1,
@@ -821,7 +821,7 @@ void vulkan_indirect_render_command_encoder::draw_internal(const graphics_render
 		const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
 			.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
 			.pNext = nullptr,
-			.stageFlags = vk_dev.shader_stage_all_graphics,
+			.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
 			.layout = pipeline_state.layout,
 			.firstSet = vulkan_pipeline::argument_buffer_vs_start_set,
 			.setCount = arg_buf_vs_set_count,
@@ -837,7 +837,7 @@ void vulkan_indirect_render_command_encoder::draw_internal(const graphics_render
 		const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
 			.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
 			.pNext = nullptr,
-			.stageFlags = vk_dev.shader_stage_all_graphics,
+			.stageFlags = VK_SHADER_STAGE_TASK_BIT_EXT,
 			.layout = pipeline_state.layout,
 			.firstSet = vulkan_pipeline::argument_buffer_ts_start_set_high,
 			.setCount = arg_buf_ts_set_count,
@@ -853,7 +853,7 @@ void vulkan_indirect_render_command_encoder::draw_internal(const graphics_render
 		const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
 			.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
 			.pNext = nullptr,
-			.stageFlags = vk_dev.shader_stage_all_graphics,
+			.stageFlags = VK_SHADER_STAGE_MESH_BIT_EXT,
 			.layout = pipeline_state.layout,
 			.firstSet = vulkan_pipeline::argument_buffer_ms_start_set_high,
 			.setCount = arg_buf_ms_set_count,
@@ -863,12 +863,13 @@ void vulkan_indirect_render_command_encoder::draw_internal(const graphics_render
 		vkCmdSetDescriptorBufferOffsets2EXT(cmd_buffer, &set_desc_buffer_offsets_info);
 	}
 	if (arg_buf_fs_set_count > 0) {
-		const auto is_fs_low_desc_count = (pipeline_state.fs_entry != nullptr &&
-										   has_flag<FUNCTION_FLAGS::VULKAN_LOW_DS>(pipeline_state.fs_entry->info->flags));
+		[[maybe_unused]] const auto is_fs_low_desc_count = (pipeline_state.fs_entry != nullptr &&
+															has_flag<FUNCTION_FLAGS::VULKAN_LOW_DS>(pipeline_state.fs_entry->info->flags));
+		assert(!is_fs_low_desc_count && "low descriptor set count not supported for mesh shading");
 		const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
 			.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
 			.pNext = nullptr,
-			.stageFlags = vk_dev.shader_stage_all_graphics,
+			.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
 			.layout = pipeline_state.layout,
 			.firstSet = (is_fs_low_desc_count ?
 						 vulkan_pipeline::argument_buffer_fs_start_set_low :

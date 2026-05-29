@@ -665,9 +665,10 @@ bool vulkan_renderer::update_vulkan_pipeline() {
 	return true;
 }
 
-void vulkan_renderer::draw_internal(const std::span<const multi_draw_entry> draw_entries,
-									const std::span<const multi_draw_indexed_entry> draw_indexed_entries,
-									const std::vector<device_function_arg>& args) {
+void vulkan_renderer::vulkan_draw_internal(const std::span<const multi_draw_entry> draw_entries,
+										   const std::span<const multi_draw_indexed_entry> draw_indexed_entries,
+										   const mesh_draw_entry* draw_mesh_entry,
+										   const std::vector<device_function_arg>& args) {
 	const auto& vk_queue = (const vulkan_queue&)cqueue;
 	vulkan_command_buffer* cmd_buffer = &render_cmd_buffer;
 	vulkan_command_buffer sec_cmd_buffer {};
@@ -704,16 +705,31 @@ void vulkan_renderer::draw_internal(const std::span<const multi_draw_entry> draw
 		}
 	}
 	
-	const auto vs = (const vulkan_shader*)cur_pipeline->get_description(multi_view).vertex_shader;
-	img_transition_barriers = vs->draw(cqueue,
-									   *cmd_buffer,
-									   vk_pipeline_state.pipeline,
-									   vk_pipeline_state.layout,
-									   vk_pipeline_state.vs_entry,
-									   vk_pipeline_state.fs_entry,
-									   draw_entries,
-									   draw_indexed_entries,
-									   args);
+	if (!draw_mesh_entry) {
+		const auto vs = (const vulkan_shader*)cur_pipeline->get_description(multi_view).vertex_shader;
+		assert(vs);
+		img_transition_barriers = vs->draw(cqueue,
+										   *cmd_buffer,
+										   vk_pipeline_state.pipeline,
+										   vk_pipeline_state.layout,
+										   vk_pipeline_state.vs_entry,
+										   vk_pipeline_state.fs_entry,
+										   draw_entries,
+										   draw_indexed_entries,
+										   args);
+	} else {
+		const auto ms = (const vulkan_shader*)cur_pipeline->get_description(multi_view).mesh_shader;
+		assert(ms && draw_entries.empty() && draw_indexed_entries.empty());
+		img_transition_barriers = ms->draw(cqueue,
+										   *cmd_buffer,
+										   vk_pipeline_state.pipeline,
+										   vk_pipeline_state.layout,
+										   vk_pipeline_state.ts_entry,
+										   vk_pipeline_state.ms_entry,
+										   vk_pipeline_state.fs_entry,
+										   *draw_mesh_entry,
+										   args);
+	}
 	
 	
 	if (is_indirect) {
@@ -723,15 +739,21 @@ void vulkan_renderer::draw_internal(const std::span<const multi_draw_entry> draw
 	}
 }
 
+void vulkan_renderer::draw_internal(const std::span<const multi_draw_entry> draw_entries,
+									const std::span<const multi_draw_indexed_entry> draw_indexed_entries,
+									const std::vector<device_function_arg>& args) {
+	vulkan_draw_internal(draw_entries, draw_indexed_entries, nullptr, args);
+}
+
+void vulkan_renderer::draw_mesh_internal(const mesh_draw_entry& draw_entry,
+										 const std::vector<device_function_arg>& args) {
+	vulkan_draw_internal({}, {}, &draw_entry, args);
+}
+
 void vulkan_renderer::draw_patches_internal(const patch_draw_entry* draw_entry floor_unused,
 											const patch_draw_indexed_entry* draw_indexed_entry floor_unused,
 											const std::vector<device_function_arg>& args floor_unused) {
 	throw std::runtime_error("tessellation is not implemented in Vulkan");
-}
-
-void vulkan_renderer::draw_mesh_internal(const mesh_draw_entry&,
-										 const std::vector<device_function_arg>&) {
-	throw std::runtime_error("mesh shading is not implemented yet in Vulkan");
 }
 
 void vulkan_renderer::wait_for_fence(const device_fence& fence, const SYNC_STAGE before_stage) {

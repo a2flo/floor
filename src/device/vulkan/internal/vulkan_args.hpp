@@ -461,7 +461,7 @@ arg_pre_handler(const std::vector<std::span<uint8_t>>& mapped_host_desc_data,
 		// ignore any non-user args
 		while (idx.arg < entry->args.size() && has_any_flag<ARG_FLAG::NON_USER_ARG>(entry->args[idx.arg].flags)) {
 			if constexpr (enc_type == ENCODER_TYPE::ARGUMENT) {
-				throw std::runtime_error("should not have non-user argument in argument buffer");
+				throw std::runtime_error("should not have any non-user arguments in an argument buffer");
 			}
 			++idx.arg;
 		}
