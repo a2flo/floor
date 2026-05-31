@@ -274,25 +274,31 @@ cuda_context::cuda_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 			device.ptx = { 9, 0 };
 		} else if (driver_version < 13020) {
 			device.ptx = { 9, 1 };
-		} else {
+		} else if (driver_version < 13030) {
 			device.ptx = { 9, 2 };
+		} else {
+			device.ptx = { 9, 3 };
 		}
 		
 		if ((device.sm.x < 9 && !(device.sm.x == 8 && device.sm.y == 8)) ||
 			(device.sm.x == 9 && device.sm.y == 0)) {
 			device.min_req_ptx = { 8, 0 };
+		} else if (device.sm.x == 8 && device.sm.y == 8) {
+			device.min_req_ptx = { 9, 0 };
 		} else if (device.sm.x < 10 || (device.sm.x == 10 && device.sm.y <= 1)) {
 			device.min_req_ptx = { 8, 6 };
+		} else if (device.sm.x == 10 && device.sm.y < 7) {
+			device.min_req_ptx = { 8, 8 };
+		} else if (device.sm.x == 10 && device.sm.y >= 7) {
+			device.min_req_ptx = { 9, 3 };
+		} else if (device.sm.x == 11 && device.sm.y == 0) {
+			device.min_req_ptx = { 9, 0 };
 		} else if (device.sm.x < 12 || (device.sm.x == 12 && device.sm.y == 0)) {
 			device.min_req_ptx = { 8, 7 };
-		} else if ((device.sm.x == 10 && device.sm.y <= 3) ||
-				   (device.sm.x == 12 && device.sm.y <= 1)) {
+		} else if (device.sm.x == 12 && device.sm.y <= 1) {
 			device.min_req_ptx = { 8, 8 };
-		} else if ((device.sm.x == 8 && device.sm.y == 8) ||
-				   (device.sm.x == 11 && device.sm.y == 0)) {
-			device.min_req_ptx = { 9, 0 };
 		} else {
-			device.min_req_ptx = { 9, 2 };
+			device.min_req_ptx = { 9, 3 };
 		}
 		
 		// additional info
