@@ -37,6 +37,8 @@
 #define VMA_KHR_MAINTENANCE5 1
 #define VMA_EXTERNAL_MEMORY 1
 #define VMA_MAPPING_HYSTERESIS_ENABLED 1
+#define VMA_GET_PHYSICAL_DEVICE_PROPERTIES2 1
+#define VMA_VULKAN_HEADERS_ALREADY_INCLUDED 1
 #if defined(__WINDOWS__)
 #define VMA_EXTERNAL_MEMORY_WIN32 1
 #else
@@ -166,6 +168,7 @@ vulkan_heap::vulkan_heap(const vulkan_device& dev_) : dev(dev_) {
 #else
 		.vkGetMemoryWin32HandleKHR = nullptr,
 #endif
+		.vkGetPhysicalDeviceProperties2KHR = vkGetPhysicalDeviceProperties2,
 	};
 	
 	// VMA uses a default block size of 256MiB, but this is generally too small for GPUs with larger VRAM and our use cases
