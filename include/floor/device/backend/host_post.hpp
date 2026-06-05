@@ -91,13 +91,19 @@ floor_inline_always __attribute__((const)) float3 get_position_in_patch() { retu
 #if FLOOR_DEVICE_INFO_MESH_SHADING_SUPPORT
 
 template <typename vertex_type, typename primitive_type,
-		  uint32_t max_vertex_count, uint32_t max_primitive_count,
+		  uint32_t max_vertex_count_, uint32_t max_primitive_count_,
 		  MESH_TOPOLOGY topology = MESH_TOPOLOGY::TRIANGLE>
 #if defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
 requires (__libfloor_is_valid_mesh_vertex_type(vertex_type) && __libfloor_is_valid_mesh_primitive_type(primitive_type))
 #endif
 struct mesh {
 	static constexpr const bool is_void_primitive = std::is_same_v<primitive_type, void>;
+	static constexpr const uint32_t max_vertex_count { max_vertex_count_ };
+	static constexpr const uint32_t max_primitive_count { max_primitive_count_ };
+	static constexpr const uint32_t indices_per_primitive {
+		topology == MESH_TOPOLOGY::TRIANGLE ? 3u : (topology == MESH_TOPOLOGY::LINE ? 2u : 1u)
+	};
+	static constexpr const uint32_t max_indices { max_primitive_count * indices_per_primitive };
 	
 	//! mesh output type / fragment stage input type
 	using output_type = mesh_output_type<vertex_type, primitive_type>;

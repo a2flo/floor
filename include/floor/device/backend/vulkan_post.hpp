@@ -220,11 +220,17 @@ void vulkan_mesh_set_index_triangle(uint32_t, clang_uint3) asm("floor.mesh.set_i
 void vulkan_mesh_emit_tasks(uint32_t, uint32_t, uint32_t) __attribute__((noduplicate, noreturn)) asm("floor.mesh.emit_tasks");
 
 template <typename vertex_type, typename primitive_type,
-		  uint32_t max_vertex_count, uint32_t max_primitive_count,
+		  uint32_t max_vertex_count_, uint32_t max_primitive_count_,
 		  MESH_TOPOLOGY topology = MESH_TOPOLOGY::TRIANGLE>
 requires (__libfloor_is_valid_mesh_vertex_type(vertex_type) && __libfloor_is_valid_mesh_primitive_type(primitive_type))
 struct mesh {
 	static constexpr const bool is_void_primitive = std::is_same_v<primitive_type, void>;
+	static constexpr const uint32_t max_vertex_count { max_vertex_count_ };
+	static constexpr const uint32_t max_primitive_count { max_primitive_count_ };
+	static constexpr const uint32_t indices_per_primitive {
+		topology == MESH_TOPOLOGY::TRIANGLE ? 3u : (topology == MESH_TOPOLOGY::LINE ? 2u : 1u)
+	};
+	static constexpr const uint32_t max_indices { max_primitive_count * indices_per_primitive };
 	
 	//! mesh output type / fragment stage input type
 	using output_type = mesh_output_type<vertex_type, primitive_type>;
