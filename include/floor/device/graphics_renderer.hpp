@@ -23,6 +23,7 @@
 #include <floor/device/graphics_pass.hpp>
 #include <floor/device/graphics_pipeline.hpp>
 #include <floor/device/graphics_index_type.hpp>
+#include <floor/device/toolchain.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/core/flat_map.hpp>
 
@@ -276,11 +277,11 @@ public:
 	//! draw info for mesh shading draw calls
 	struct mesh_draw_entry {
 		//! max XYZ work-group count
-		uint3 work_group_count { 0u };
+		uint3 work_group_count { 1u, 1u, 1u };
 		//! max XYZ work-group size in the task shader
-		uint3 local_work_size_task { 0u };
+		uint3 local_work_size_task { 1u, 1u, 1u };
 		//! max XYZ work-group size in the mesh shader
-		uint3 local_work_size_mesh { 0u };
+		uint3 local_work_size_mesh { 1u, 1u, 1u };
 	};
 	
 	//! emit a mesh shading draw call with draw call information stored in "draw_entry"
@@ -346,6 +347,12 @@ public:
 	bool is_valid() const {
 		return valid;
 	}
+	
+#if defined(FLOOR_DEBUG)
+	static bool is_valid_mesh_draw(const mesh_draw_entry& draw_entry,
+								   const toolchain::function_info* floor_nullable ts_info,
+								   const toolchain::function_info& ms_info);
+#endif
 	
 protected:
 	const device_queue& cqueue;

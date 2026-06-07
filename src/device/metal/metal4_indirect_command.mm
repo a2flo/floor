@@ -21,6 +21,7 @@
 #if !defined(FLOOR_NO_METAL)
 #include <floor/core/logger.hpp>
 #include <floor/device/device_context.hpp>
+#include <floor/device/graphics_renderer.hpp>
 #include <floor/device/metal/metal_context.hpp>
 #include <floor/device/metal/metal_device.hpp>
 #include <floor/device/metal/metal4_indirect_command.hpp>
@@ -487,6 +488,12 @@ indirect_render_command_encoder& metal4_indirect_render_command_encoder::draw_me
 	if (!pipeline_entry.has_mesh_support) {
 		assert(false);
 		throw std::runtime_error("mesh shading is not supported");
+	}
+	
+	assert(ms_info);
+	const graphics_renderer::mesh_draw_entry draw_entry { work_group_count, local_work_size_task, local_work_size_mesh };
+	if (!graphics_renderer::is_valid_mesh_draw(draw_entry, ts_info, *ms_info)) {
+		return *this;
 	}
 #endif
 	

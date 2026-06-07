@@ -594,6 +594,13 @@ void metal4_renderer::draw_mesh_internal(const mesh_draw_entry& draw_entry,
 	@autoreleasepool {
 		const auto ms = (const metal4_shader*)cur_pipeline->get_description(multi_view).mesh_shader;
 		assert(ms);
+#if defined(FLOOR_DEBUG)
+		assert(mtl_pipeline_state->ms_entry);
+		if (!is_valid_mesh_draw(draw_entry, mtl_pipeline_state->ts_entry ? mtl_pipeline_state->ts_entry->info : nullptr,
+								*mtl_pipeline_state->ms_entry->info)) {
+			return;
+		}
+#endif
 		if (!ms->set_shader_arguments(cqueue, encoder, cmd_buffer,
 									  (const metal4_function_entry*)mtl_pipeline_state->ts_entry,
 									  (const metal4_function_entry*)mtl_pipeline_state->ms_entry,

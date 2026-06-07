@@ -144,6 +144,13 @@ public:
 		return false;
 	}
 	
+	//! explicitly casts the vector component types of this bounding box (min/max) to "dst_scalar_type"
+	//! NOTE: casting a bbox with min/max set to max/lowest of the current floating point type (e.g. if default-initialized) is incorrect!
+	template <typename dst_scalar_type>
+	constexpr bbox<vector_n<dst_scalar_type, 3>> cast() const {
+		return { min.template cast<dst_scalar_type>(), max.template cast<dst_scalar_type>() };
+	}
+	
 };
 
 using bboxh = bbox<half3>;

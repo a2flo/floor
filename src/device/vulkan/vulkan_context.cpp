@@ -847,6 +847,8 @@ enable_renderer(enable_renderer_) {
 			"VK_KHR_shader_abort",
 			"VK_KHR_shader_constant_data",
 			"VK_KHR_opacity_micromap",
+			"VK_KHR_extended_flags",
+			"VK_KHR_video_encode_feedback2",
 			// these are not needed and interfere with Nsight
 			"VK_KHR_pipeline_binary",
 			"VK_KHR_pipeline_library",

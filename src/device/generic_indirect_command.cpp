@@ -20,6 +20,7 @@
 #include <floor/device/device_buffer.hpp>
 #include <floor/device/device_context.hpp>
 #include <floor/device/graphics_pipeline.hpp>
+#include <floor/device/graphics_renderer.hpp>
 
 namespace fl {
 
@@ -292,6 +293,12 @@ generic_indirect_render_command_encoder::draw_mesh(const uint3 work_group_count,
 	if (!pipeline_entry.has_mesh_support) {
 		assert(false);
 		throw std::runtime_error("mesh shading is not supported");
+	}
+	
+	assert(mesh_entry);
+	const graphics_renderer::mesh_draw_entry draw_entry { work_group_count, local_work_size_task, local_work_size_mesh };
+	if (!graphics_renderer::is_valid_mesh_draw(draw_entry, task_entry ? task_entry->info : nullptr, *mesh_entry->info)) {
+		return *this;
 	}
 #endif
 	

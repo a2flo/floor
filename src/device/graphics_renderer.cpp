@@ -212,4 +212,46 @@ void graphics_renderer::execute_indirect(const indirect_command_pipeline& indire
 	}
 }
 
+#if defined(FLOOR_DEBUG)
+bool graphics_renderer::is_valid_mesh_draw(const mesh_draw_entry& draw_entry,
+										   const toolchain::function_info* ts_info,
+										   const toolchain::function_info& ms_info) {
+	const auto mesh_kernel_dim = ms_info.get_kernel_dim();
+	const auto first_kernel_dim = (!ts_info ? mesh_kernel_dim : ts_info->get_kernel_dim());
+	if ((first_kernel_dim == 1 && draw_entry.work_group_count.y > 1) ||
+		(first_kernel_dim <= 2 && draw_entry.work_group_count.z > 1)) {
+		log_error("invalid work-group count for $D task/mesh shader: $", first_kernel_dim, draw_entry.work_group_count);
+		return false;
+	}
+	
+	if (ts_info) {
+		if ((first_kernel_dim == 1 && draw_entry.local_work_size_task.y > 1) ||
+			(first_kernel_dim <= 2 && draw_entry.local_work_size_task.z > 1)) {
+			log_error("invalid $D task shader local work size: $", first_kernel_dim, draw_entry.local_work_size_task);
+			return false;
+		}
+		if (ts_info->has_valid_required_local_size() &&
+			(draw_entry.local_work_size_task != ts_info->required_local_size).any()) {
+			log_error("invalid task shader local work size: $ (required: $)", draw_entry.local_work_size_task,
+					  ts_info->required_local_size);
+			return false;
+		}
+	}
+	
+	if ((mesh_kernel_dim == 1 && draw_entry.local_work_size_mesh.y > 1) ||
+		(mesh_kernel_dim <= 2 && draw_entry.local_work_size_mesh.z > 1)) {
+		log_error("invalid $D mesh shader local work size: $", mesh_kernel_dim, draw_entry.local_work_size_mesh);
+		return false;
+	}
+	
+	if (ms_info.has_valid_required_local_size() &&
+		(draw_entry.local_work_size_mesh != ms_info.required_local_size).any()) {
+		log_error("invalid mesh shader local work size: $ (required: $)", draw_entry.local_work_size_mesh,
+				  ms_info.required_local_size);
+		return false;
+	}
+	return true;
+}
+#endif
+
 } // namespace fl

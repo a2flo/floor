@@ -747,6 +747,13 @@ void vulkan_renderer::draw_internal(const std::span<const multi_draw_entry> draw
 
 void vulkan_renderer::draw_mesh_internal(const mesh_draw_entry& draw_entry,
 										 const std::vector<device_function_arg>& args) {
+#if defined(FLOOR_DEBUG)
+	assert(vk_pipeline_state.ms_entry);
+	if (!is_valid_mesh_draw(draw_entry, vk_pipeline_state.ts_entry ? vk_pipeline_state.ts_entry->info : nullptr,
+							*vk_pipeline_state.ms_entry->info)) {
+		return;
+	}
+#endif
 	vulkan_draw_internal({}, {}, &draw_entry, args);
 }
 

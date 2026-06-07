@@ -523,6 +523,13 @@ indirect_render_command_encoder& vulkan_indirect_render_command_encoder::draw_me
 		assert(false);
 		throw std::runtime_error("mesh shading is not supported");
 	}
+	
+	assert(pipeline_state.ms_entry);
+	const graphics_renderer::mesh_draw_entry draw_entry { work_group_count, local_work_size_task, local_work_size_mesh };
+	if (!graphics_renderer::is_valid_mesh_draw(draw_entry, pipeline_state.ts_entry ? pipeline_state.ts_entry->info : nullptr,
+											   *pipeline_state.ms_entry->info)) {
+		return *this;
+	}
 #endif
 	
 	// can now request the proper specialized pipeline (unless we already have it)

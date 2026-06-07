@@ -103,7 +103,7 @@ struct mesh {
 	static constexpr const uint32_t indices_per_primitive {
 		topology == MESH_TOPOLOGY::TRIANGLE ? 3u : (topology == MESH_TOPOLOGY::LINE ? 2u : 1u)
 	};
-	static constexpr const uint32_t max_indices { max_primitive_count * indices_per_primitive };
+	static constexpr const uint32_t max_index_count { max_primitive_count * indices_per_primitive };
 	
 	//! mesh output type / fragment stage input type
 	using output_type = mesh_output_type<vertex_type, primitive_type>;
