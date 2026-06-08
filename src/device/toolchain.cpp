@@ -305,12 +305,15 @@ program_data compile_input(const std::string& input,
 					case 40:
 						metal_version = METAL_VERSION::METAL_4_0;
 						break;
+					case 41:
+						metal_version = METAL_VERSION::METAL_4_1;
+						break;
 					default:
 						log_error("invalid force_version: $", metal_force_version);
 						break;
 				}
 			}
-			if (metal_version > METAL_VERSION::METAL_4_0) {
+			if (metal_version > METAL_VERSION::METAL_4_1) {
 				log_error("unsupported Metal language version: $", metal_version_to_string(metal_version));
 				return {};
 			}
@@ -327,6 +330,9 @@ program_data compile_input(const std::string& input,
 					case METAL_VERSION::METAL_4_0:
 						os_target = "ios26.0.0";
 						break;
+					case METAL_VERSION::METAL_4_1:
+						os_target = "ios27.0.0";
+						break;
 				}
 			} else if (mtl_dev.platform_type == metal_device::PLATFORM_TYPE::VISIONOS ||
 					   mtl_dev.platform_type == metal_device::PLATFORM_TYPE::VISIONOS_SIMULATOR) {
@@ -339,6 +345,9 @@ program_data compile_input(const std::string& input,
 					case METAL_VERSION::METAL_4_0:
 						os_target = "xros26.0.0";
 						break;
+					case METAL_VERSION::METAL_4_1:
+						os_target = "xros27.0.0";
+						break;
 				}
 			} else if (mtl_dev.platform_type == metal_device::PLATFORM_TYPE::MACOS) {
 				// -> macOS 15.0+
@@ -349,6 +358,9 @@ program_data compile_input(const std::string& input,
 						break;
 					case METAL_VERSION::METAL_4_0:
 						os_target = "macosx26.0.0";
+						break;
+					case METAL_VERSION::METAL_4_1:
+						os_target = "macosx27.0.0";
 						break;
 				}
 			} else {
@@ -369,6 +381,10 @@ program_data compile_input(const std::string& input,
 				case METAL_VERSION::METAL_4_0:
 					metal_std = "metal4.0";
 					air_target = "air64_v28";
+					break;
+				case METAL_VERSION::METAL_4_1:
+					metal_std = "metal4.1";
+					air_target = "air64_v29";
 					break;
 				default: break;
 			}

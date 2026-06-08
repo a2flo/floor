@@ -308,6 +308,14 @@ static const char* metal_tensor_data_type_to_string(const MTLTensorDataType& dat
 		case MTLTensorDataTypeInt4: return "TensorInt4";
 		case MTLTensorDataTypeUInt4: return "TensorUInt4";
 #endif
+#if defined(__MAC_27_0) || defined(__IPHONE_27_0) || defined(__VISIONOS_27_0)
+		case MTLTensorDataTypeFloat8UE8M0: return "TensorFloat8UE8M0";
+		case MTLTensorDataTypeUInt2: return "TensorUInt2";
+		case MTLTensorDataTypeInt2: return "TensorInt2";
+		case MTLTensorDataTypeFloat8E5M2: return "TensorFloat8E5M2";
+		case MTLTensorDataTypeFloat8E4M3: return "TensorFloat8E4M3";
+		case MTLTensorDataTypeFloat4E2M1: return "TensorFloat4E2M1";
+#endif
 	}
 	return "<unknown>";
 }

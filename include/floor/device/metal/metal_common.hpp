@@ -29,6 +29,7 @@ enum class METAL_VERSION : uint32_t {
 	// NOTE: Metal 3.2 is the min supported version right now
 	METAL_3_2,
 	METAL_4_0,
+	METAL_4_1,
 };
 
 constexpr const char* metal_version_to_string(const METAL_VERSION& version) {
@@ -36,19 +37,22 @@ constexpr const char* metal_version_to_string(const METAL_VERSION& version) {
 		case METAL_VERSION::NONE: return "";
 		case METAL_VERSION::METAL_3_2: return "3.2";
 		case METAL_VERSION::METAL_4_0: return "4.0";
+		case METAL_VERSION::METAL_4_1: return "4.1";
 	}
 }
 constexpr const char* metal_major_version_to_string(const METAL_VERSION& version) {
 	switch (version) {
 		case METAL_VERSION::NONE: return "";
 		case METAL_VERSION::METAL_3_2: return "3";
-		case METAL_VERSION::METAL_4_0: return "4";
+		case METAL_VERSION::METAL_4_0:
+		case METAL_VERSION::METAL_4_1: return "4";
 	}
 }
 constexpr const char* metal_minor_version_to_string(const METAL_VERSION& version) {
 	switch (version) {
 		case METAL_VERSION::NONE: return "";
 		case METAL_VERSION::METAL_4_0: return "0";
+		case METAL_VERSION::METAL_4_1: return "1";
 		case METAL_VERSION::METAL_3_2: return "2";
 	}
 }
@@ -61,6 +65,7 @@ constexpr METAL_VERSION metal_version_from_uint(const uint32_t major, const uint
 	} else if (major == 4) {
 		switch (minor) {
 			case 0: return METAL_VERSION::METAL_4_0;
+			case 1: return METAL_VERSION::METAL_4_1;
 			default: return METAL_VERSION::NONE;
 		}
 	}
