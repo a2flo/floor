@@ -401,10 +401,6 @@ program_data compile_input(const std::string& input,
 				"\"" + floor::get_metal_compiler() + "\"" +
 				" -x " + (!build_pch ? "metal" : "metal-header") +
 				" -std=" + metal_std + " -target " + air_target + "-apple-" + os_target +
-#if defined(__APPLE__)
-				// always enable intel workarounds (conversion problems)
-				(dev.vendor == VENDOR::INTEL ? " -Xclang -metal-intel-workarounds" : "") +
-#endif
 				(soft_printf ? " -Xclang -metal-soft-printf -DFLOOR_DEVICE_HAS_SOFT_PRINTF=1" : "") +
 				(options.metal.restrictive_vectorization ? " -Xclang -metal-restrictive-vectorization" : "") +
 				" -Xclang -cl-mad-enable" \

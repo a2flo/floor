@@ -74,6 +74,7 @@ using intptr_t = __PTRDIFF_TYPE__;
 using ptrdiff_t = __PTRDIFF_TYPE__;
 
 // memory and synchronization scopes
+#define FLOOR_METAL_SYNC_SCOPE_THREAD 0
 #define FLOOR_METAL_SYNC_SCOPE_LOCAL 1
 #define FLOOR_METAL_SYNC_SCOPE_GLOBAL 2
 #define FLOOR_METAL_SYNC_SCOPE_SUB_GROUP 4
@@ -81,9 +82,21 @@ using ptrdiff_t = __PTRDIFF_TYPE__;
 #define FLOOR_METAL_MEM_FLAGS_NONE 0
 #define FLOOR_METAL_MEM_FLAGS_GLOBAL 1
 #define FLOOR_METAL_MEM_FLAGS_LOCAL 2
-#define FLOOR_METAL_MEM_FLAGS_ALL 3
 #define FLOOR_METAL_MEM_FLAGS_TEXTURE 4
 #define FLOOR_METAL_MEM_FLAGS_LOCAL_IMAGE_BLOCK 8
 #define FLOOR_METAL_MEM_FLAGS_TASK_PAYLOAD 16
+#define FLOOR_METAL_MEM_FLAGS_ALL (FLOOR_METAL_MEM_FLAGS_GLOBAL | FLOOR_METAL_MEM_FLAGS_LOCAL | FLOOR_METAL_MEM_FLAGS_TEXTURE | \
+								   FLOOR_METAL_MEM_FLAGS_LOCAL_IMAGE_BLOCK | FLOOR_METAL_MEM_FLAGS_TASK_PAYLOAD)
+
+// NOTE: with Metal 4.1 these are now properly supported (on Apple GPUs), but there was support since at least Metal 2.4,
+//       so we make use of these in earlier versions as well
+#define FLOOR_METAL_MEM_ORDER_RELAXED 0
+#define FLOOR_METAL_MEM_ORDER_ACQUIRE 2
+#define FLOOR_METAL_MEM_ORDER_RELEASE 3
+#define FLOOR_METAL_MEM_ORDER_ACQ_REL 4
+#define FLOOR_METAL_MEM_ORDER_SEQ_CST 5
+
+// use acquire-release ordering by default
+#define FLOOR_METAL_MEM_ORDER_DEFAULT FLOOR_METAL_MEM_ORDER_ACQ_REL
 
 #endif

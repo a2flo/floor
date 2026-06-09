@@ -470,7 +470,6 @@ namespace fl::universal_binary {
 							mtl_dev.simd_width = mtl_target.simd_width;
 							break;
 						case decltype(mtl_target.device_target)::INTEL:
-							options.cli += " -Xclang -metal-intel-workarounds";
 							mtl_dev.vendor = VENDOR::INTEL;
 							mtl_dev.simd_width = 32;
 							break;
