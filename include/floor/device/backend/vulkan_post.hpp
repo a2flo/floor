@@ -236,7 +236,11 @@ struct mesh {
 	using output_type = mesh_output_type<vertex_type, primitive_type>;
 	
 	//! sets the actual output sizes (primitive count and vertex count),
+	//! the primitive count defaults to the max specified primitive count of the mesh (max_primitive_count)
 	//! the vertex count defaults to the max specified vertex count of the mesh (max_vertex_count)
+	void set_output_size() const {
+		vulkan_mesh_set_output_size(max_vertex_count, max_primitive_count);
+	}
 	void set_output_size(const uint32_t primitive_count) const {
 		vulkan_mesh_set_output_size(max_vertex_count, primitive_count);
 	}

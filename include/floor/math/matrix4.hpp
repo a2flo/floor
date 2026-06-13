@@ -161,6 +161,21 @@ public:
 									data[(col*4) + 3]);
 	}
 	
+	//! returns a vector pointing in the right (X) direction defined by the rotation of this matrix
+	constexpr vector3<scalar_type> right() const {
+		return { data[0], data[4], data[8] };
+	}
+	
+	//! returns a vector pointing in the up (Y) direction defined by the rotation of this matrix
+	constexpr vector3<scalar_type> up() const {
+		return { data[1], data[5], data[9] };
+	}
+	
+	//! returns a vector pointing in the forward (Z) direction defined by the rotation of this matrix
+	constexpr vector3<scalar_type> forward() const {
+		return { data[2], data[6], data[10] };
+	}
+	
 	//////////////////////////////////////////
 	// basic ops
 #pragma mark basic ops
