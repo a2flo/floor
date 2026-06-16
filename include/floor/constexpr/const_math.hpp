@@ -119,7 +119,7 @@ namespace fl::const_math {
 	}
 	template <typename fp_type> requires(std::is_same_v<fp_type, half>)
 	constexpr bool is_infinite(const fp_type val) {
-#if defined(FLOOR_DEVICE_HOST_COMPUTE) && !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
+#if !defined(FLOOR_DEVICE) || (defined(FLOOR_DEVICE_HOST_COMPUTE) && !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE))
 		return val.is_infinite();
 #else
 		return __builtin_isinf(val);
@@ -133,7 +133,7 @@ namespace fl::const_math {
 	}
 	template <typename fp_type> requires(std::is_same_v<fp_type, half>)
 	constexpr bool is_nan(const fp_type val) {
-#if defined(FLOOR_DEVICE_HOST_COMPUTE) && !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
+#if !defined(FLOOR_DEVICE) || (defined(FLOOR_DEVICE_HOST_COMPUTE) && !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE))
 		return val.is_nan();
 #else
 		return __builtin_isnan(val);
@@ -147,7 +147,7 @@ namespace fl::const_math {
 	}
 	template <typename fp_type> requires(std::is_same_v<fp_type, half>)
 	constexpr bool is_normal(const fp_type val) {
-#if defined(FLOOR_DEVICE_HOST_COMPUTE) && !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
+#if !defined(FLOOR_DEVICE) || (defined(FLOOR_DEVICE_HOST_COMPUTE) && !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE))
 		return val.is_normal();
 #else
 		return __builtin_isnormal(val);
@@ -161,7 +161,7 @@ namespace fl::const_math {
 	}
 	template <typename fp_type> requires(std::is_same_v<fp_type, half>)
 	constexpr bool is_finite(const fp_type val) {
-#if defined(FLOOR_DEVICE_HOST_COMPUTE) && !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
+#if !defined(FLOOR_DEVICE) || (defined(FLOOR_DEVICE_HOST_COMPUTE) && !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE))
 		return val.is_finite();
 #else
 		return __builtin_isfinite(val);
@@ -1170,6 +1170,10 @@ namespace fl::const_math {
 	
 #if !defined(FLOOR_DEVICE) || (defined(FLOOR_DEVICE_HOST_COMPUTE) && !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE))
 	//! not actually constexpr, but necessary to properly wrap native/builtin fma intrinsics
+	floor_inline_always floor_used static half native_fma(const half a, const half b, const half c) {
+		return half(__builtin_fmaf(float(a), float(b), float(c)));
+	}
+	//! not actually constexpr, but necessary to properly wrap native/builtin fma intrinsics
 	floor_inline_always floor_used static float native_fma(const float a, const float b, const float c) {
 		return __builtin_fmaf(a, b, c);
 	}
@@ -1204,13 +1208,6 @@ namespace fl::const_math {
 	}
 #else
 #error "unsupported target"
-#endif
-	
-#if (defined(FLOOR_DEVICE_HOST_COMPUTE) && !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE))
-	//! forward half to float fma
-	floor_inline_always floor_used static half native_fma(const half a, const half b, const half c) {
-		return (half)native_fma(float(a), float(b), float(c));
-	}
 #endif
 	
 	//! creates a "(1 << val) - 1" / "2^N - 1" bit mask (for 0 < N <= 64)
@@ -1886,8 +1883,7 @@ namespace fl::math {
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, long double)
 #endif
 	
-	// non-standard and Metal/Vulkan/CUDA/OpenCL/host-only for now
-#if defined(FLOOR_DEVICE_METAL) || defined(FLOOR_DEVICE_VULKAN) || defined(FLOOR_DEVICE_HOST_COMPUTE) || defined(FLOOR_DEVICE_CUDA) || defined(FLOOR_DEVICE_OPENCL)
+	// non-standard half precision
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, half)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, half)
 	FLOOR_CONST_SELECT_2(fmod, const_math::fmod, std::fmod, half)
@@ -1933,7 +1929,6 @@ namespace fl::math {
 	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, half)
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, half)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, half)
-#endif
 
 	// cleanup
 #undef FLOOR_CONST_SELECT_ARG_EXP_1

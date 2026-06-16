@@ -40,6 +40,7 @@ template <typename scalar_type> class vector4;
 #if defined(__APPLE__) && (!defined(FLOOR_DEVICE) || (defined(FLOOR_DEVICE_HOST_COMPUTE) && !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)))
 // all types when compiling on macOS/iOS
 #define FLOOR_VECTOR_TYPES_F(F, vec_width) \
+F(half, half, vec_width) \
 F(float, float, vec_width) \
 F(double, double, vec_width) \
 F(long double, ldouble, vec_width) \
@@ -58,6 +59,7 @@ F(bool, bool, vec_width)
 // remove long double / double when compiling for device platforms
 #if !defined(FLOOR_DEVICE_NO_DOUBLE)
 #define FLOOR_VECTOR_TYPES_F(F, vec_width) \
+F(half, half, vec_width) \
 F(float, float, vec_width) \
 F(double, double, vec_width) \
 F(int8_t, char, vec_width) \
@@ -71,6 +73,7 @@ F(uint64_t, ulong, vec_width) \
 F(bool, bool, vec_width)
 #else // disable double support as well
 #define FLOOR_VECTOR_TYPES_F(F, vec_width) \
+F(half, half, vec_width) \
 F(float, float, vec_width) \
 F(int8_t, char, vec_width) \
 F(uint8_t, uchar, vec_width) \
@@ -85,6 +88,7 @@ F(bool, bool, vec_width)
 #else
 // remove size_t and ssize_t when not compiling on macOS/iOS
 #define FLOOR_VECTOR_TYPES_F(F, vec_width) \
+F(half, half, vec_width) \
 F(float, float, vec_width) \
 F(double, double, vec_width) \
 F(long double, ldouble, vec_width) \
@@ -107,14 +111,6 @@ FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_TYPEDEF, 1)
 FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_TYPEDEF, 2)
 FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_TYPEDEF, 3)
 FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_TYPEDEF, 4)
-
-#if defined(FLOOR_DEVICE_METAL) || defined(FLOOR_DEVICE_VULKAN) || defined(FLOOR_DEVICE_HOST_COMPUTE) || defined(FLOOR_DEVICE_CUDA) || defined(FLOOR_DEVICE_OPENCL)
-#define FLOOR_HALF_VECTOR_TYPE_F(F, vec_width) F(half, half, vec_width)
-FLOOR_HALF_VECTOR_TYPE_F(FLOOR_VECTOR_TYPEDEF, 1)
-FLOOR_HALF_VECTOR_TYPE_F(FLOOR_VECTOR_TYPEDEF, 2)
-FLOOR_HALF_VECTOR_TYPE_F(FLOOR_VECTOR_TYPEDEF, 3)
-FLOOR_HALF_VECTOR_TYPE_F(FLOOR_VECTOR_TYPEDEF, 4)
-#endif
 
 // necessary non-macOS/iOS aliases
 #if !defined(__APPLE__) || (defined(FLOOR_DEVICE) && !defined(FLOOR_DEVICE_HOST_COMPUTE))

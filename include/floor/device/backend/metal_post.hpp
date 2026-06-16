@@ -237,12 +237,13 @@ struct mesh {
 		metal_mesh_set_index(mesh, primitive_idx * 3u + 2u, indices.z);
 	}
 	
-	void set_vertex(const uint32_t output_position, vertex_type vert) const {
+	[[floor_io_function]] void set_vertex(const uint32_t output_position, vertex_type vert) const {
 		__libfloor_mesh_set_vertex(mesh, output_position, vert);
 	}
 	
-	void set_primitive(const uint32_t output_position,
-					   std::conditional_t<!is_void_primitive, primitive_type, int> prim) const requires(!is_void_primitive) {
+	[[floor_io_function]] void set_primitive(const uint32_t output_position,
+											 std::conditional_t<!is_void_primitive, primitive_type, int> prim) const
+	requires(!is_void_primitive) {
 		__libfloor_mesh_set_primitive(mesh, output_position, prim);
 	}
 	

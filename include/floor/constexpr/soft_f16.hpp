@@ -114,7 +114,7 @@ struct soft_f16 {
 		return *this; \
 	} \
 	constexpr friend soft_f16 operator op (const float& lhs, const soft_f16& rhs) { \
-		return soft_f16 { __fp16(lhs * float(rhs)) }; \
+		return soft_f16 { __fp16(lhs op float(rhs)) }; \
 	}
 	
 	FLOOR_F16_OP(+)
@@ -130,10 +130,13 @@ struct soft_f16 {
 		return ret;
 	}
 	
-	constexpr soft_f16 operator-() const {
+	constexpr soft_f16 operator+() const noexcept {
+		return *this;
+	}
+	constexpr soft_f16 operator-() const noexcept {
 		return -float(value_fp16);
 	}
-	constexpr soft_f16 operator!() const {
+	constexpr soft_f16 operator!() const noexcept {
 		return (float(value_fp16) == 0.0f ? 1.0f : 0.0f);
 	}
 	
@@ -215,7 +218,7 @@ namespace fl {
 
 // we can't use the 'h' suffix everywhere (e.g. Host-Compute with a vanilla clang)
 // -> add custom '_h' UDL which can be used everywhere
-#if defined(FLOOR_DEVICE_HOST_COMPUTE) && !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
+#if !defined(FLOOR_DEVICE) || (defined(FLOOR_DEVICE_HOST_COMPUTE) && !defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE))
 static constexpr inline fl::half operator""_h (long double val) {
 	return fl::half(val);
 }

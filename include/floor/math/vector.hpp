@@ -156,7 +156,7 @@ public:
 	template <typename vec_type> struct clang_vector_type_spec {};
 	template <typename vec_type> requires(vec_type::has_clang_vector_type()) struct clang_vector_type_spec<vec_type> {
 		// special handling for half/fp16 types
-#if !defined(FLOOR_DEVICE_HOST_COMPUTE) || defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
+#if defined(FLOOR_DEVICE) && (!defined(FLOOR_DEVICE_HOST_COMPUTE) || defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE))
 		using clang_scalar_type = scalar_type;
 #else
 		using clang_scalar_type = std::conditional_t<!std::is_same_v<scalar_type, half>, scalar_type, __fp16>;
