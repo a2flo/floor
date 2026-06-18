@@ -94,11 +94,8 @@
 #endif
 
 // if Host-Compute is enabled, enable host-based graphics as well
-// NOTE: right now this can only be enabled for apple platforms due to constexpr requirements
 #if defined(FLOOR_DEVICE_HOST_COMPUTE) && FLOOR_DEVICE_HOST_COMPUTE == 1
-#if defined(__APPLE__)
 #define FLOOR_GRAPHICS_HOST_COMPUTE 1
-#endif
 #endif
 
 // ignore warning handling
