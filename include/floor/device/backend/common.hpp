@@ -501,6 +501,7 @@ template <typename T> using task_payload = T&;
 #define instance_id get_instance_id()
 #define base_instance_id get_base_instance_id()
 #define point_coord get_point_coord()
+#define front_facing get_front_facing()
 #define view_index get_view_index()
 #define primitive_id get_primitive_id()
 #define barycentric_coord get_barycentric_coord()

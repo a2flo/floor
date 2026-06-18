@@ -57,6 +57,10 @@ floor_inline_always __attribute__((const)) float3 get_barycentric_coord() {
 	return {};
 }
 // NOTE: not supported
+floor_inline_always __attribute__((const)) bool get_front_facing() {
+	return true;
+}
+// NOTE: not supported
 floor_inline_always void discard_fragment() /*__attribute__((noreturn))*/ {
 	// TODO: exit current fiber instead of returning here
 	return;

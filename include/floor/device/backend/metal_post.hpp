@@ -141,6 +141,9 @@ const_func clang_float3 get_barycentric_coord_cf3() __attribute__((unavailable("
 floor_inline_always const_func float3 get_barycentric_coord() __attribute__((unavailable("not supported on this target")));
 #endif
 
+//! returns true if the fragment belongs to a front-facing primitive
+const_func bool get_front_facing() asm("floor.get_front_facing.bool");
+
 //! discards the current fragment
 void discard_fragment() __attribute__((noreturn)) asm("air.discard_fragment");
 
