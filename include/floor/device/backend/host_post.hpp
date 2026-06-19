@@ -155,12 +155,7 @@ struct mesh {
 	}
 	
 protected:
-#if defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
-	__mesh_t mesh;
-#else
 	void* mesh { nullptr };
-#endif
-	
 };
 
 struct mesh_grid_properties {
@@ -169,11 +164,7 @@ struct mesh_grid_properties {
 	}
 	
 protected:
-#if defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
-	__mesh_grid_properties_t props;
-#else
 	void* props { nullptr };
-#endif
 };
 
 #endif
