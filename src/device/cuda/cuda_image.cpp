@@ -610,7 +610,8 @@ bool cuda_image::write(const device_queue& cqueue, const void* src, const size_t
 		const auto mip_extent = (extent >> level).maxed(1u);
 		const auto mip_offset = (offset >> level);
 		
-		const auto write_data_size = image_mip_level_data_size_from_types(extent /* original extent! */, image_type, level, write_layer_count);
+		const auto write_img_dim = image_dim_with_layer_count(extent /* original extent! */, image_type, write_layer_count);
+		const auto write_data_size = image_mip_level_data_size_from_types(write_img_dim, image_type, level, write_layer_count);
 		assert(write_data_size > 0);
 		if (cpy_host_data.size_bytes() < write_data_size) {
 			log_error("image write: insufficient host data at mip-level $", level);

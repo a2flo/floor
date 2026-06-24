@@ -629,8 +629,9 @@ bool vulkan_image_internal::create_internal(const bool copy_host_data, const dev
 			const uint3 copy_extent { extent.width, extent.height, extent.depth };
 			if (vk_dev.host_image_copy_support) {
 				size_t req_size = 0;
+				const auto write_img_dim = image_dim_with_layer_count(copy_extent, image_type, layer_count);
 				for (uint32_t level = 0; level < mip_level_count; ++level) {
-					req_size += image_mip_level_data_size_from_types(copy_extent >> level, image_type, level, layer_count);
+					req_size += image_mip_level_data_size_from_types(write_img_dim, image_type, level, layer_count);
 					if (req_size > host_data.size_bytes()) {
 						break;
 					}

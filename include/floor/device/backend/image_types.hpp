@@ -808,6 +808,24 @@ static constexpr size_t image_mip_level_data_size_from_types(const uint4& image_
 	return size;
 }
 
+//! combines a 1D/2D/3D-only dimension "dim" and array "layer_count" into a proper uint4 image dim under consideration of the image type
+//! NOTE: if the image type is not an array type, "layer_count" is ignored
+//! NOTE: the component in "dim" that corresponds to the layer count will be ignored/overwritten by the "layer_count"
+static constexpr uint4 image_dim_with_layer_count(const uint3 dim, const IMAGE_TYPE image_type, const uint32_t layer_count) {
+	const auto dim_count = image_dim_count(image_type);
+	uint4 image_dim { dim, 0u };
+	if (has_flag<IMAGE_TYPE::FLAG_ARRAY>(image_type)) {
+		if (dim_count == 3) {
+			image_dim.w = layer_count;
+		} else if (dim_count == 2) {
+			image_dim.z = layer_count;
+		} else {
+			image_dim.y = layer_count;
+		}
+	}
+	return image_dim;
+}
+
 //! image data size -> data type mapping
 //! NOTE: if size is 0, this will default to a 32-bit type
 template <IMAGE_TYPE image_type, size_t size> struct image_sized_data_type {};

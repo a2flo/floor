@@ -533,8 +533,9 @@ bool device_image::write_check(const size_t src_size, const uint3 offset, const 
 	const auto write_layer_count = (layer_range.y - layer_range.x) + 1u;
 	// NOTE: always using the original image type here, not the shim type, as the host data is user-provided, the shim data is not
 	const auto img_type = image_type;
+	const auto write_img_dim = image_dim_with_layer_count(extent, img_type, write_layer_count);
 	for (uint32_t level = mip_level_range.x; level <= mip_level_range.y; ++level) {
-		req_size += image_mip_level_data_size_from_types(extent >> level, img_type, level, write_layer_count);
+		req_size += image_mip_level_data_size_from_types(write_img_dim, img_type, level, write_layer_count);
 	}
 	if (src_size < req_size) {
 		log_error("write: src size $' is less than the required size $'", src_size, req_size);
