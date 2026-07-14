@@ -46,6 +46,20 @@ public:
 		read(cqueue, &dst, sizeof(T), offset_);
 	}
 	
+	//! reads all data as elements of type "T" starting at "elem_offset" (0 -> all by default),
+	//! return the read elements as { unique-ptr-array, #elements }, or { empty, 0 } on failure
+	//! NOTE: the read size may be smaller than the maximum if the size of "T" * the #elements is not aligned with the full size
+	template <typename T> std::pair<std::unique_ptr<T[]>, size_t> read_all(const device_queue& cqueue, const size_t elem_offset = 0) {
+		const auto byte_offset = elem_offset * sizeof(T);
+		const auto elem_count = (size - byte_offset) / sizeof(T);
+		if (byte_offset >= size || elem_count == 0) [[unlikely]] {
+			return { {}, 0u };
+		}
+		auto ret = std::make_unique<T[]>(elem_count);
+		read(cqueue, ret.get(), elem_count * sizeof(T), byte_offset);
+		return { std::move(ret), elem_count };
+	}
+	
 	//! writes "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! from the previously specified host pointer to this buffer
 	virtual void write(const device_queue& cqueue, const size_t size = 0, const size_t offset = 0) = 0;
