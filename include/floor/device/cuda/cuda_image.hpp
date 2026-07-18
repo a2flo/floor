@@ -83,9 +83,6 @@ public:
 		return textures;
 	}
 	
-	//! internal function - initialized once by cuda_context
-	static void init_internal(cuda_context* ctx);
-	
 	//! when the internal CUDA API is used, this function will be called by the CUDA driver when
 	//! creating a texture object to initialize/create the sampler state of the texture
 	static CU_API CU_RESULT internal_device_sampler_init(cu_texture_ref tex_ref);

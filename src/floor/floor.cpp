@@ -928,6 +928,7 @@ bool floor::init_internal(const init_state& state) {
 #if !defined(FLOOR_IOS) && !defined(FLOOR_VISIONOS)
 		SDL_SetNumberProperty(wnd_props, SDL_PROP_WINDOW_CREATE_X_NUMBER, window_pos.x);
 		SDL_SetNumberProperty(wnd_props, SDL_PROP_WINDOW_CREATE_Y_NUMBER, window_pos.y);
+		SDL_SetHint("SDL_HINT_WINDOW_ACTIVATE_WHEN_SHOWN", "1");
 #endif
 		window = SDL_CreateWindowWithProperties(wnd_props);
 		if (window == nullptr) {

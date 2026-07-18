@@ -832,6 +832,10 @@ WARNINGS="${WARNINGS} -Wno-nan-infinity-disabled"
 WARNINGS="${WARNINGS} -Wno-missing-designated-field-initializers"
 # ignore missing include directories, we may not always have all specified include dirs
 WARNINGS="${WARNINGS} -Wno-missing-include-dirs"
+# ignore lifetime safety warnings
+WARNINGS="${WARNINGS} -Wno-lifetime-safety-invalidation -Wno-lifetime-safety-cross-tu-suggestions"
+WARNINGS="${WARNINGS} -Wno-lifetime-safety-intra-tu-suggestions -Wno-lifetime-safety-return-stack-addr-moved"
+WARNINGS="${WARNINGS} -Wno-lifetime-safety-dangling-field"
 COMMON_FLAGS="${COMMON_FLAGS} ${WARNINGS}"
 
 # diagnostics

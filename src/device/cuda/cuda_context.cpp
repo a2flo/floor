@@ -410,9 +410,6 @@ cuda_context::cuda_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 	for (const auto& dev : devices) {
 		default_queues.emplace(dev.get(), create_queue(*dev, "default_queue"));
 	}
-	
-	// init shaders in cuda_image
-	cuda_image::init_internal(this);
 }
 
 std::shared_ptr<device_queue> cuda_context::create_queue(const device& dev, const char* debug_label) const {

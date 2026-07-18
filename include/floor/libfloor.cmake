@@ -117,6 +117,8 @@ target_compile_options(${PROJECT_NAME} PUBLIC -Wno-nan-infinity-disabled)
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-missing-designated-field-initializers)
 # ignore missing include directories, we may not always have all specified include dirs
 target_compile_options(${PROJECT_NAME} PUBLIC -Wno-missing-include-dirs)
+# ignore lifetime safety warnings
+target_compile_options(${PROJECT_NAME} PUBLIC -Wno-lifetime-safety-invalidation -Wno-lifetime-safety-cross-tu-suggestions -Wno-lifetime-safety-intra-tu-suggestions -Wno-lifetime-safety-return-stack-addr-moved -Wno-lifetime-safety-dangling-field)
 # diagnostics
 if (NOT MSVC)
 	target_compile_options(${PROJECT_NAME} PUBLIC -fdiagnostics-show-note-include-stack -fmessage-length=0 -fmacro-backtrace-limit=0)

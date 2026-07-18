@@ -2239,6 +2239,11 @@
 					"-Wno-missing-include-dirs",
 					"-Wno-missing-designated-field-initializers",
 					"-Wno-reserved-identifier",
+					"-Wno-lifetime-safety-invalidation",
+					"-Wno-lifetime-safety-cross-tu-suggestions",
+					"-Wno-lifetime-safety-intra-tu-suggestions",
+					"-Wno-lifetime-safety-return-stack-addr-moved",
+					"-Wno-lifetime-safety-dangling-field",
 				);
 			};
 			name = Debug;
@@ -2417,6 +2422,11 @@
 					"-Wno-missing-include-dirs",
 					"-Wno-missing-designated-field-initializers",
 					"-Wno-reserved-identifier",
+					"-Wno-lifetime-safety-invalidation",
+					"-Wno-lifetime-safety-cross-tu-suggestions",
+					"-Wno-lifetime-safety-intra-tu-suggestions",
+					"-Wno-lifetime-safety-return-stack-addr-moved",
+					"-Wno-lifetime-safety-dangling-field",
 				);
 			};
 			name = Release;

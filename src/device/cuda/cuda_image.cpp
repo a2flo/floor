@@ -80,12 +80,6 @@ static bool cuda_memcpy(const void* host,
 	return true;
 }
 
-static uint32_t cuda_driver_version { 12000 };
-void cuda_image::init_internal(cuda_context* ctx) {
-	// need to know the driver version when using internal CUDA functionality later on
-	cuda_driver_version = ctx->get_cuda_driver_version();
-}
-
 static safe_mutex device_sampler_mtx;
 static const cuda_device* cur_device { nullptr };
 static bool apply_sampler_modifications { false };
