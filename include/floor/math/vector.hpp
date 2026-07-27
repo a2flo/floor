@@ -489,6 +489,41 @@ public:
 #endif
 	}
 	
+	//! assigns "value" to the component of this vector identified by "index", with index being clamped to the valid range
+	//! NOTE: this is primarily intended to work around compiler limitations (e.g. this can prevent the emission of allocas, creating a switch instead)
+	//!       -> for normal use cases, direct component access, sub-script/[] or component_select() should be used instead
+	constexpr vector_type& component_assign(const uint32_t index, const decayed_scalar_type value) {
+#if FLOOR_VECTOR_WIDTH == 1
+		(void)index;
+		x = value;
+#elif FLOOR_VECTOR_WIDTH == 2
+		if (index == 0) {
+			x = value;
+		} else {
+			y = value;
+		}
+#elif FLOOR_VECTOR_WIDTH == 3
+		if (index == 0) {
+			x = value;
+		} else if (index == 1) {
+			y = value;
+		} else {
+			z = value;
+		}
+#elif FLOOR_VECTOR_WIDTH == 4
+		if (index == 0) {
+			x = value;
+		} else if (index == 1) {
+			y = value;
+		} else if (index == 2) {
+			z = value;
+		} else {
+			w = value;
+		}
+#endif
+		return *this;
+	}
+	
 	//! swizzles this vector, according to the specified component indices
 	template <uint32_t c0
 #if FLOOR_VECTOR_WIDTH >= 2
