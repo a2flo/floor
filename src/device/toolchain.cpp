@@ -411,8 +411,7 @@ program_data compile_input(const std::string& input,
 				" -DFLOOR_DEVICE_METAL" +
 				" -DFLOOR_DEVICE_METAL_MAJOR=" + metal_major_version_to_string(metal_version) +
 				" -DFLOOR_DEVICE_METAL_MINOR=" + metal_minor_version_to_string(metal_version) +
-				" -mllvm -slp-vectorize-hor=false" \
-				" -ffine-grained-bitfield-accesses"
+				" -mllvm -slp-vectorize-hor=false"
 			};
 			libcxx_path += floor::get_metal_base_path() + "libcxx";
 			clang_path += floor::get_metal_base_path() + "clang";
@@ -557,8 +556,7 @@ program_data compile_input(const std::string& input,
 				" -DFLOOR_DEVICE_NO_DOUBLE"
 				// TODO: fix Vulkan double support
 				//(!dev.double_support ? " -DFLOOR_DEVICE_NO_DOUBLE" : "")
-				" -mllvm -slp-vectorize-hor=false" \
-				" -ffine-grained-bitfield-accesses"
+				" -mllvm -slp-vectorize-hor=false"
 			};
 			libcxx_path += floor::get_vulkan_base_path() + "libcxx";
 			clang_path += floor::get_vulkan_base_path() + "clang";
