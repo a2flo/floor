@@ -78,6 +78,9 @@ namespace fl::algorithm {
 	
 	using fl::algorithm::group::min_op;
 	using fl::algorithm::group::max_op;
+	using fl::algorithm::group::and_op;
+	using fl::algorithm::group::or_op;
+	using fl::algorithm::group::xor_op;
 	
 	//////////////////////////////////////////
 	// sub-group reduce functions
@@ -96,6 +99,21 @@ namespace fl::algorithm {
 	requires(group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, group::OP::MAX, data_type>)
 	floor_inline_always static data_type sub_group_reduce_max(data_type lane_var) {
 		return group::sub_group_reduce<group::OP::MAX>(lane_var);
+	}
+	template <typename data_type>
+	requires(group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, group::OP::AND, data_type>)
+	floor_inline_always static data_type sub_group_reduce_and(data_type lane_var) {
+		return group::sub_group_reduce<group::OP::AND>(lane_var);
+	}
+	template <typename data_type>
+	requires(group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, group::OP::OR, data_type>)
+	floor_inline_always static data_type sub_group_reduce_or(data_type lane_var) {
+		return group::sub_group_reduce<group::OP::OR>(lane_var);
+	}
+	template <typename data_type>
+	requires(group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, group::OP::XOR, data_type>)
+	floor_inline_always static data_type sub_group_reduce_xor(data_type lane_var) {
+		return group::sub_group_reduce<group::OP::XOR>(lane_var);
 	}
 	
 	//////////////////////////////////////////
@@ -215,6 +233,47 @@ namespace fl::algorithm {
 		return reduced_type(lmem[0]);
 #endif
 	}
+
+	//! generic group::OP work-group reduce function, this should generally not be used directly (use add/min/max/and/or/xor instead)
+	//! NOTE: only work-item #0 (local_id == 0) is guaranteed to contain the final result
+	//! NOTE: local memory must be allocated on the user side and passed into this function
+	template <auto work_group_size, group::OP op_type, typename reduced_type, typename local_memory_type, typename op_func_type>
+	requires(supported_work_group_size_type<work_group_size>)
+	floor_inline_always static reduced_type reduce_op(const reduced_type work_item_value,
+													  local_memory_type& lmem,
+													  op_func_type&& op_func,
+													  const decay_as_t<reduced_type> default_val) {
+		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_REDUCE, op_type, reduced_type>) {
+			return group::work_group_reduce<op_type>(work_item_value, lmem);
+		}
+#if FLOOR_DEVICE_INFO_HAS_SUB_GROUPS != 0
+		// can we fallback to a sub-group level implementation?
+		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, op_type, reduced_type> &&
+						   prefer_simd_operations) {
+			constexpr const uint32_t linear_work_group_size = compute_linear_work_group_size<work_group_size>();
+			
+			// first pass: inclusive scan in each sub-group
+			const auto sub_block_red_val = group::sub_group_reduce<op_type>(work_item_value);
+			// first sub-group item writes its result into local memory for the second pass
+			if (sub_group_local_id == 0u) {
+				lmem[sub_group_id] = sub_block_red_val;
+			}
+			local_barrier();
+			
+			// second pass: reduction of the partial results in each sub-group to compute the full result, executed in the first sub-group
+			reduced_type total_result {};
+			if (sub_group_id == 0u) {
+				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
+				const auto sg_in_val = (sub_group_local_id < (linear_work_group_size / sub_group_size) ?
+										reduced_type(lmem[sub_group_local_id]) : default_val);
+				total_result = group::sub_group_reduce<op_type>(sg_in_val);
+			}
+			local_barrier();
+			return total_result;
+		}
+#endif
+		return reduce<work_group_size>(work_item_value, lmem, op_func);
+	}
 	
 	//! work-group add/sum reduce function
 	//! NOTE: only work-item #0 (local_id == 0) is guaranteed to contain the final result
@@ -223,36 +282,7 @@ namespace fl::algorithm {
 	requires(supported_work_group_size_type<work_group_size>)
 	floor_inline_always static reduced_type reduce_add(const reduced_type work_item_value,
 													   local_memory_type& lmem) {
-		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_REDUCE, group::OP::ADD, reduced_type>) {
-			return group::work_group_reduce<group::OP::ADD>(work_item_value, lmem);
-		}
-#if FLOOR_DEVICE_INFO_HAS_SUB_GROUPS != 0
-		// can we fallback to a sub-group level implementation?
-		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, group::OP::ADD, reduced_type> &&
-						   prefer_simd_operations) {
-			constexpr const uint32_t linear_work_group_size = compute_linear_work_group_size<work_group_size>();
-			
-			// first pass: inclusive scan in each sub-group
-			const auto sub_block_red_val = group::sub_group_reduce<group::OP::ADD>(work_item_value);
-			// first sub-group item writes its result into local memory for the second pass
-			if (sub_group_local_id == 0u) {
-				lmem[sub_group_id] = sub_block_red_val;
-			}
-			local_barrier();
-			
-			// second pass: reduction of the partial sums in each sub-group to compute the total sum, executed in the first sub-group
-			reduced_type total_sum {};
-			if (sub_group_id == 0u) {
-				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
-				const auto sg_in_val = (sub_group_local_id < (linear_work_group_size / sub_group_size) ?
-										reduced_type(lmem[sub_group_local_id]) : reduced_type(0));
-				total_sum = group::sub_group_reduce<group::OP::ADD>(sg_in_val);
-			}
-			local_barrier();
-			return total_sum;
-		}
-#endif
-		return reduce<work_group_size>(work_item_value, lmem, std::plus<reduced_type> {});
+		return reduce_op<work_group_size, group::OP::ADD>(work_item_value, lmem, std::plus<reduced_type> {}, reduced_type(0));
 	}
 	
 	//! work-group min reduce function
@@ -262,36 +292,7 @@ namespace fl::algorithm {
 	requires(supported_work_group_size_type<work_group_size>)
 	floor_inline_always static reduced_type reduce_min(const reduced_type work_item_value,
 													   local_memory_type& lmem) {
-		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_REDUCE, group::OP::MIN, reduced_type>) {
-			return group::work_group_reduce<group::OP::MIN>(work_item_value, lmem);
-		}
-#if FLOOR_DEVICE_INFO_HAS_SUB_GROUPS != 0
-		// can we fallback to a sub-group level implementation?
-		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, group::OP::MIN, reduced_type> &&
-						   prefer_simd_operations) {
-			constexpr const uint32_t linear_work_group_size = compute_linear_work_group_size<work_group_size>();
-			
-			// first pass: inclusive scan in each sub-group
-			const auto sub_block_red_val = group::sub_group_reduce<group::OP::MIN>(work_item_value);
-			// first sub-group item writes its result into local memory for the second pass
-			if (sub_group_local_id == 0u) {
-				lmem[sub_group_id] = sub_block_red_val;
-			}
-			local_barrier();
-			
-			// second pass: reduction of the partial minima in each sub-group to compute the total min, executed in the first sub-group
-			reduced_type total_min {};
-			if (sub_group_id == 0u) {
-				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
-				const auto sg_in_val = (sub_group_local_id < (linear_work_group_size / sub_group_size) ?
-										reduced_type(lmem[sub_group_local_id]) : max_value<reduced_type>());
-				total_min = group::sub_group_reduce<group::OP::MIN>(sg_in_val);
-			}
-			local_barrier();
-			return total_min;
-		}
-#endif
-		return reduce<work_group_size>(work_item_value, lmem, min_op<reduced_type> {});
+		return reduce_op<work_group_size, group::OP::MIN>(work_item_value, lmem, min_op<reduced_type> {}, max_value<reduced_type>());
 	}
 	
 	//! work-group max reduce function
@@ -301,36 +302,37 @@ namespace fl::algorithm {
 	requires(supported_work_group_size_type<work_group_size>)
 	floor_inline_always static reduced_type reduce_max(const reduced_type work_item_value,
 													   local_memory_type& lmem) {
-		if constexpr (group::supports_v<group::ALGORITHM::WORK_GROUP_REDUCE, group::OP::MAX, reduced_type>) {
-			return group::work_group_reduce<group::OP::MAX>(work_item_value, lmem);
-		}
-#if FLOOR_DEVICE_INFO_HAS_SUB_GROUPS != 0
-		// can we fallback to a sub-group level implementation?
-		else if constexpr (group::supports_v<group::ALGORITHM::SUB_GROUP_REDUCE, group::OP::MAX, reduced_type> &&
-						   prefer_simd_operations) {
-			constexpr const uint32_t linear_work_group_size = compute_linear_work_group_size<work_group_size>();
-			
-			// first pass: inclusive scan in each sub-group
-			const auto sub_block_red_val = group::sub_group_reduce<group::OP::MAX>(work_item_value);
-			// first sub-group item writes its result into local memory for the second pass
-			if (sub_group_local_id == 0u) {
-				lmem[sub_group_id] = sub_block_red_val;
-			}
-			local_barrier();
-			
-			// second pass: reduction of the partial maxima in each sub-group to compute the total max, executed in the first sub-group
-			reduced_type total_max {};
-			if (sub_group_id == 0u) {
-				// NOTE: we need to consider that the executing work-group size may be smaller than "sub_group_size * sub_group_size"
-				const auto sg_in_val = (sub_group_local_id < (linear_work_group_size / sub_group_size) ?
-										reduced_type(lmem[sub_group_local_id]) : min_value<reduced_type>());
-				total_max = group::sub_group_reduce<group::OP::MAX>(sg_in_val);
-			}
-			local_barrier();
-			return total_max;
-		}
-#endif
-		return reduce<work_group_size>(work_item_value, lmem, max_op<reduced_type> {});
+		return reduce_op<work_group_size, group::OP::MAX>(work_item_value, lmem, max_op<reduced_type> {}, min_value<reduced_type>());
+	}
+	
+	//! work-group bitwise AND reduce function
+	//! NOTE: only work-item #0 (local_id == 0) is guaranteed to contain the final result
+	//! NOTE: local memory must be allocated on the user side and passed into this function
+	template <auto work_group_size, typename reduced_type, typename local_memory_type>
+	requires(supported_work_group_size_type<work_group_size>)
+	floor_inline_always static reduced_type reduce_and(const reduced_type work_item_value,
+													   local_memory_type& lmem) {
+		return reduce_op<work_group_size, group::OP::AND>(work_item_value, lmem, and_op<reduced_type> {}, reduced_type(~reduced_type(0)));
+	}
+	
+	//! work-group bitwise OR reduce function
+	//! NOTE: only work-item #0 (local_id == 0) is guaranteed to contain the final result
+	//! NOTE: local memory must be allocated on the user side and passed into this function
+	template <auto work_group_size, typename reduced_type, typename local_memory_type>
+	requires(supported_work_group_size_type<work_group_size>)
+	floor_inline_always static reduced_type reduce_or(const reduced_type work_item_value,
+													  local_memory_type& lmem) {
+		return reduce_op<work_group_size, group::OP::OR>(work_item_value, lmem, or_op<reduced_type> {}, reduced_type(0));
+	}
+	
+	//! work-group bitwise XOR reduce function
+	//! NOTE: only work-item #0 (local_id == 0) is guaranteed to contain the final result
+	//! NOTE: local memory must be allocated on the user side and passed into this function
+	template <auto work_group_size, typename reduced_type, typename local_memory_type>
+	requires(supported_work_group_size_type<work_group_size>)
+	floor_inline_always static reduced_type reduce_xor(const reduced_type work_item_value,
+													   local_memory_type& lmem) {
+		return reduce_op<work_group_size, group::OP::XOR>(work_item_value, lmem, xor_op<reduced_type> {}, reduced_type(0));
 	}
 	
 	//! returns the amount of local memory elements that must be allocated by the caller

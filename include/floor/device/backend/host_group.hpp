@@ -36,36 +36,58 @@ uint32_t floor_host_compute_device_simd_ballot(bool predicate) __attribute__((no
 using fl::half;
 #endif
 
-// all supported scalar data types in Host-Compute SIMD/subgroup functions
-#define FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES_SCALAR(F, P, D) \
+// all supported scalar integer data types in Host-Compute SIMD/subgroup functions
+#define FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES_INT_SCALAR(F, P, D) \
 F(P, D, int16_t, s16) \
 F(P, D, uint16_t, u16) \
-F(P, D, half, f16) \
 F(P, D, int32_t, s32) \
-F(P, D, uint32_t, u32) \
+F(P, D, uint32_t, u32)
+
+// all supported scalar floating point data types in Host-Compute SIMD/subgroup functions
+#define FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES_FP_SCALAR(F, P, D) \
+F(P, D, half, f16) \
 F(P, D, float, f32)
 
-// all supported vector data types in Host-Compute SIMD/subgroup functions
+// all supported scalar data types in Host-Compute SIMD/subgroup functions
+#define FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES_SCALAR(F, P, D) \
+FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES_INT_SCALAR(F, P, D) \
+FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES_FP_SCALAR(F, P, D)
+
+// all supported vector integer data types in Host-Compute SIMD/subgroup functions
 // NOTE: we don't need or want to use clang vector types here
-#define FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES_VECTOR(F, P, D) \
+#define FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES_INT_VECTOR(F, P, D) \
 F(P, D, fl::short2, v2s16) \
 F(P, D, fl::ushort2, v2u16) \
-F(P, D, fl::half2, v2f16) \
 F(P, D, fl::int2, v2s32) \
 F(P, D, fl::uint2, v2u32) \
-F(P, D, fl::float2, v2f32) \
 F(P, D, fl::short3, v3s16) \
 F(P, D, fl::ushort3, v3u16) \
-F(P, D, fl::half3, v3f16) \
 F(P, D, fl::int3, v3s32) \
 F(P, D, fl::uint3, v3u32) \
-F(P, D, fl::float3, v3f32) \
 F(P, D, fl::short4, v4s16) \
 F(P, D, fl::ushort4, v4u16) \
-F(P, D, fl::half4, v4f16) \
 F(P, D, fl::int4, v4s32) \
-F(P, D, fl::uint4, v4u32) \
+F(P, D, fl::uint4, v4u32)
+
+// all supported vector floating point data types in Host-Compute SIMD/subgroup functions
+// NOTE: we don't need or want to use clang vector types here
+#define FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES_FP_VECTOR(F, P, D) \
+F(P, D, fl::half2, v2f16) \
+F(P, D, fl::float2, v2f32) \
+F(P, D, fl::half3, v3f16) \
+F(P, D, fl::float3, v3f32) \
+F(P, D, fl::half4, v4f16) \
 F(P, D, fl::float4, v4f32)
+
+// all supported vector data types in Host-Compute SIMD/subgroup functions
+#define FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES_VECTOR(F, P, D) \
+FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES_INT_VECTOR(F, P, D) \
+FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES_FP_VECTOR(F, P, D)
+
+// all supported integer data types in Host-Compute SIMD/subgroup functions
+#define FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES_INT(F, D, P) \
+FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES_INT_SCALAR(F, D, P) \
+FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES_INT_VECTOR(F, D, P)
 
 // all supported data types in Host-Compute SIMD/subgroup functions
 #define FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES(F, D, P) \
@@ -195,9 +217,16 @@ template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::ADD, floor_
 template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::MIN, floor_data_type> : public std::true_type {}; \
 template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::MAX, floor_data_type> : public std::true_type {};
 
+#define FLOOR_HOST_COMPUTE_SUPPORT_SUBGROUP_OPS_INT(func, device_suffix, floor_data_type, type_suffix) \
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::AND, floor_data_type> : public std::true_type {}; \
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::OR, floor_data_type> : public std::true_type {}; \
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::XOR, floor_data_type> : public std::true_type {};
+
 FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES(FLOOR_HOST_COMPUTE_SUPPORT_SUBGROUP_OPS, , )
+FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES_INT(FLOOR_HOST_COMPUTE_SUPPORT_SUBGROUP_OPS_INT, , )
 
 #undef FLOOR_HOST_COMPUTE_SUPPORT_SUBGROUP_OPS
+#undef FLOOR_HOST_COMPUTE_SUPPORT_SUBGROUP_OPS_INT
 
 template <OP op, typename data_type>
 requires (op == OP::ADD)
@@ -215,6 +244,24 @@ template <OP op, typename data_type>
 requires (op == OP::MAX)
 static inline auto sub_group_reduce(const data_type input_value) {
 	return host_compute_sub_group_reduce(input_value, max_op<data_type> {});
+}
+
+template <OP op, typename data_type>
+requires (op == OP::AND && is_sub_group_integer_type_v<data_type>)
+static inline auto sub_group_reduce(const data_type input_value) {
+	return host_compute_sub_group_reduce(input_value, and_op<data_type> {});
+}
+
+template <OP op, typename data_type>
+requires (op == OP::OR && is_sub_group_integer_type_v<data_type>)
+static inline auto sub_group_reduce(const data_type input_value) {
+	return host_compute_sub_group_reduce(input_value, or_op<data_type> {});
+}
+
+template <OP op, typename data_type>
+requires (op == OP::XOR && is_sub_group_integer_type_v<data_type>)
+static inline auto sub_group_reduce(const data_type input_value) {
+	return host_compute_sub_group_reduce(input_value, xor_op<data_type> {});
 }
 
 template <OP op, typename data_type>

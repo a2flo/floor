@@ -23,59 +23,88 @@
 namespace fl {
 
 // all supported 16-bit and 32-bit scalar data types in CUDA SIMD/subgroup functions
-#define FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_16_32(F, P) \
+#define FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_INT_16_32(F, P) \
 F(P, int16_t, int16_t, "s16") \
 F(P, uint16_t, uint16_t, "u16") \
-F(P, half, half, "f16") \
 F(P, int32_t, int32_t, "s32") \
-F(P, uint32_t, uint32_t, "u32") \
+F(P, uint32_t, uint32_t, "u32")
+
+#define FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_FP_16_32(F, P) \
+F(P, half, half, "f16") \
 F(P, float, float, "f32")
 
+#define FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_16_32(F, P) \
+FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_INT_16_32(F, P) \
+FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_FP_16_32(F, P)
+
 // all supported 64-bit scalar data types in CUDA SIMD/subgroup functions
-#define FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_64(F, P) \
+#define FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_INT_64(F, P) \
 F(P, int64_t, int64_t, "s64") \
-F(P, uint64_t, uint64_t, "u64") \
+F(P, uint64_t, uint64_t, "u64")
+
+#define FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_FP_64(F, P) \
 F(P, double, double, "f64")
+
+#define FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_64(F, P) \
+FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_INT_64(F, P) \
+FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_FP_64(F, P)
 
 // all supported scalar data types in CUDA SIMD/subgroup functions
 #define FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR(F, P) \
 FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_16_32(F, P) \
 FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_64(F, P)
 
+// all supported integer scalar data types in CUDA SIMD/subgroup functions
+#define FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_INT(F, P) \
+FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_INT_16_32(F, P) \
+FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_INT_64(F, P)
+
 // all supported 16-bit and 32-bit vector data types in CUDA SIMD/subgroup functions
 // NOTE: we emulate these
-#define FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_16_32(F, P) \
+#define FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_INT_16_32(F, P) \
 F(P, short2, short2, "v2.s16") \
 F(P, ushort2, ushort2, "v2.u16") \
-F(P, half2, half2, "v2.f16") \
 F(P, int2, int2, "v2.s32") \
 F(P, uint2, uint2, "v2.u32") \
-F(P, float2, float2, "v2.f32") \
 F(P, short3, short3, "v3.s16") \
 F(P, ushort3, ushort3, "v3.u16") \
-F(P, half3, half3, "v3.f16") \
 F(P, int3, int3, "v3.s32") \
 F(P, uint3, uint3, "v3.u32") \
-F(P, float3, float3, "v3.f32") \
 F(P, short4, short4, "v4.s16") \
 F(P, ushort4, ushort4, "v4.u16") \
-F(P, half4, half4, "v4.f16") \
 F(P, int4, int4, "v4.s32") \
-F(P, uint4, uint4, "v4.u32") \
+F(P, uint4, uint4, "v4.u32")
+
+#define FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_FP_16_32(F, P) \
+F(P, half2, half2, "v2.f16") \
+F(P, float2, float2, "v2.f32") \
+F(P, half3, half3, "v3.f16") \
+F(P, float3, float3, "v3.f32") \
+F(P, half4, half4, "v4.f16") \
 F(P, float4, float4, "v4.f32")
+
+#define FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_16_32(F, P) \
+FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_INT_16_32(F, P) \
+FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_FP_16_32(F, P)
 
 // all supported 64-bit vector data types in CUDA SIMD/subgroup functions
 // NOTE: we emulate these
-#define FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_64(F, P) \
+#define FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_INT_64(F, P) \
 F(P, long2, long2, "v2.s64") \
 F(P, ulong2, ulong2, "v2.u64") \
-F(P, double2, double2, "v2.f64") \
 F(P, long3, long3, "v3.s64") \
 F(P, ulong3, ulong3, "v3.u64") \
-F(P, double3, double3, "v3.f64") \
 F(P, long4, long4, "v4.s64") \
-F(P, ulong4, ulong4, "v4.u64") \
+F(P, ulong4, ulong4, "v4.u64")
+
+#define FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_FP_64(F, P) \
+F(P, double2, double2, "v2.f64") \
+F(P, double3, double3, "v3.f64") \
 F(P, double4, double4, "v4.f64")
+
+#define FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_64(F, P) \
+FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_INT_64(F, P) \
+FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_FP_64(F, P)
 
 // all supported vector data types in CUDA SIMD/subgroup functions
 // NOTE: we emulate these
@@ -192,7 +221,7 @@ floor_inline_always static type_16b simd_shuffle_xor(const type_16b lane_var, co
 // emulate vector shuffle functions
 #define SUB_GROUP_VECTOR_FUNC(func, floor_data_type, clang_data_type, type_suffix) \
 floor_inline_always static floor_data_type func(floor_data_type vec, const uint32_t mask) { \
-	return vec.apply([mask](floor_data_type::decayed_scalar_type value) { return func(value, mask); }); \
+	return vec.apply([mask](floor_data_type::decayed_scalar_type value) { return func(value, mask); }); \
 }
 FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_16_32(SUB_GROUP_VECTOR_FUNC, simd_shuffle)
 FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_16_32(SUB_GROUP_VECTOR_FUNC, simd_shuffle_down)
@@ -299,7 +328,7 @@ floor_inline_always static T cuda_sub_group_scan(T lane_var, F&& op) {
 //! use redux.sync with sm_80+
 template <OP op, typename T>
 requires (fl::ext::is_same_as_any_v<T, uint16_t, int16_t, uint32_t, int32_t> &&
-		  (op == OP::ADD || op == OP::MIN || op == OP::MAX))
+		  (op == OP::ADD || op == OP::MIN || op == OP::MAX || op == OP::AND || op == OP::OR || op == OP::XOR))
 floor_inline_always static T cuda_sub_group_redux(T lane_var) {
 	using int_type_32b = std::conditional_t<!std::is_signed_v<T>, uint32_t, int32_t>;
 	const auto lane_var_32b = int_type_32b(lane_var);
@@ -322,6 +351,12 @@ floor_inline_always static T cuda_sub_group_redux(T lane_var) {
 		} else {
 			asm volatile("redux.sync.max.s32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var_32b));
 		}
+	} else if constexpr (op == OP::AND) {
+		asm volatile("redux.sync.and.b32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var_32b));
+	} else if constexpr (op == OP::OR) {
+		asm volatile("redux.sync.or.b32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var_32b));
+	} else if constexpr (op == OP::XOR) {
+		asm volatile("redux.sync.xor.b32 %0, %1, 0xFFFFFFFF;" : "=r"(ret) : "r"(lane_var_32b));
 	}
 	return T(ret);
 }
@@ -333,6 +368,11 @@ template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::ADD, floor_data_typ
 template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MIN, floor_data_type> : public std::true_type {}; \
 template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::MAX, floor_data_type> : public std::true_type {};
 
+#define FLOOR_CUDA_SUPPORT_REDUCE_SUBGROUP_OPS_INT(func, floor_data_type, clang_data_type, type_suffix) \
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::AND, floor_data_type> : public std::true_type {}; \
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::OR, floor_data_type> : public std::true_type {}; \
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::XOR, floor_data_type> : public std::true_type {};
+
 #define FLOOR_CUDA_SUPPORT_SCAN_SUBGROUP_OPS(func, floor_data_type, clang_data_type, type_suffix) \
 template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::ADD, floor_data_type> : public std::true_type {}; \
 template <> struct supports<ALGORITHM::SUB_GROUP_INCLUSIVE_SCAN, OP::MIN, floor_data_type> : public std::true_type {}; \
@@ -343,10 +383,14 @@ template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::MAX, floor_
 
 // supported for all scalar data types (16/32/64-bit)
 FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR(FLOOR_CUDA_SUPPORT_REDUCE_SUBGROUP_OPS, )
+// only supported for scalar integer 16/32-bit data types
+// TODO: emulate bitwise 64-bit ops
+FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_INT_16_32(FLOOR_CUDA_SUPPORT_REDUCE_SUBGROUP_OPS_INT, )
 // only supported for scalar 16/32-bit data types
 FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_16_32(FLOOR_CUDA_SUPPORT_SCAN_SUBGROUP_OPS, )
 
 #undef FLOOR_CUDA_SUPPORT_REDUCE_SUBGROUP_OPS
+#undef FLOOR_CUDA_SUPPORT_REDUCE_SUBGROUP_OPS_INT
 #undef FLOOR_CUDA_SUPPORT_SCAN_SUBGROUP_OPS
 
 template <OP op, typename data_type>
@@ -380,6 +424,39 @@ static auto sub_group_reduce(const data_type input_value) {
 	}
 #endif
 	return cuda_sub_group_reduce(input_value, max_op<data_type> {});
+}
+
+template <OP op, typename data_type>
+requires (op == OP::AND && is_sub_group_integer_type_v<data_type>)
+static auto sub_group_reduce(const data_type input_value) {
+#if FLOOR_DEVICE_INFO_CUDA_SM >= 80
+	if constexpr (fl::ext::is_same_as_any_v<data_type, uint16_t, int16_t, uint32_t, int32_t>) {
+		return cuda_sub_group_redux<OP::AND>(input_value);
+	}
+#endif
+	return cuda_sub_group_reduce(input_value, and_op<data_type> {});
+}
+
+template <OP op, typename data_type>
+requires (op == OP::OR && is_sub_group_integer_type_v<data_type>)
+static auto sub_group_reduce(const data_type input_value) {
+#if FLOOR_DEVICE_INFO_CUDA_SM >= 80
+	if constexpr (fl::ext::is_same_as_any_v<data_type, uint16_t, int16_t, uint32_t, int32_t>) {
+		return cuda_sub_group_redux<OP::OR>(input_value);
+	}
+#endif
+	return cuda_sub_group_reduce(input_value, or_op<data_type> {});
+}
+
+template <OP op, typename data_type>
+requires (op == OP::XOR && is_sub_group_integer_type_v<data_type>)
+static auto sub_group_reduce(const data_type input_value) {
+#if FLOOR_DEVICE_INFO_CUDA_SM >= 80
+	if constexpr (fl::ext::is_same_as_any_v<data_type, uint16_t, int16_t, uint32_t, int32_t>) {
+		return cuda_sub_group_redux<OP::XOR>(input_value);
+	}
+#endif
+	return cuda_sub_group_reduce(input_value, xor_op<data_type> {});
 }
 
 template <OP op, typename data_type>
@@ -422,13 +499,22 @@ static auto sub_group_exclusive_scan(const data_type input_value) {
 
 #undef FLOOR_CUDA_SUB_GROUP_DATA_TYPES
 
+#undef FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_INT_16_32
+#undef FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_INT_64
+#undef FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_FP_16_32
+#undef FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_FP_64
 #undef FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_16_32
 #undef FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR_64
 #undef FLOOR_CUDA_SUB_GROUP_DATA_TYPES_VECTOR
 
+#undef FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_INT_16_32
+#undef FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_INT_64
+#undef FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_FP_16_32
+#undef FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_FP_64
 #undef FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_16_32
 #undef FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_64
 #undef FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR
+#undef FLOOR_CUDA_SUB_GROUP_DATA_TYPES_SCALAR_INT
 
 } // namespace fl
 

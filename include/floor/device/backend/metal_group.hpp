@@ -22,35 +22,56 @@
 
 namespace fl {
 
-// all supported scalar data types in Metal SIMD/subgroup functions
-#define FLOOR_METAL_SUB_GROUP_DATA_TYPES_SCALAR(F, P) \
+// all supported integer scalar data types in Metal SIMD/subgroup functions
+#define FLOOR_METAL_SUB_GROUP_DATA_TYPES_INT_SCALAR(F, P) \
 F(P, int16_t, int16_t, "s.i16") \
 F(P, uint16_t, uint16_t, "u.i16") \
-F(P, half, half, "f16") \
 F(P, int32_t, int32_t, "s.i32") \
-F(P, uint32_t, uint32_t, "u.i32") \
+F(P, uint32_t, uint32_t, "u.i32")
+
+// all supported floating point scalar data types in Metal SIMD/subgroup functions
+#define FLOOR_METAL_SUB_GROUP_DATA_TYPES_FP_SCALAR(F, P) \
+F(P, half, half, "f16") \
 F(P, float, float, "f32")
+
+// all supported scalar data types in Metal SIMD/subgroup functions
+#define FLOOR_METAL_SUB_GROUP_DATA_TYPES_SCALAR(F, P) \
+FLOOR_METAL_SUB_GROUP_DATA_TYPES_INT_SCALAR(F, P) \
+FLOOR_METAL_SUB_GROUP_DATA_TYPES_FP_SCALAR(F, P)
+
+// all supported integer vector data types in Metal SIMD/subgroup functions
+#define FLOOR_METAL_SUB_GROUP_DATA_TYPES_INT_VECTOR(F, P) \
+F(P, short2, clang_short2, "s.v2i16") \
+F(P, ushort2, clang_ushort2, "u.v2i16") \
+F(P, int2, clang_int2, "s.v2i32") \
+F(P, uint2, clang_uint2, "u.v2i32") \
+F(P, short3, clang_short3, "s.v3i16") \
+F(P, ushort3, clang_ushort3, "u.v3i16") \
+F(P, int3, clang_int3, "s.v3i32") \
+F(P, uint3, clang_uint3, "u.v3i32") \
+F(P, short4, clang_short4, "s.v4i16") \
+F(P, ushort4, clang_ushort4, "u.v4i16") \
+F(P, int4, clang_int4, "s.v4i32") \
+F(P, uint4, clang_uint4, "u.v4i32") \
+
+// all supported floating point vector data types in Metal SIMD/subgroup functions
+#define FLOOR_METAL_SUB_GROUP_DATA_TYPES_FP_VECTOR(F, P) \
+F(P, half2, clang_half2, "v2f16") \
+F(P, float2, clang_float2, "v2f32") \
+F(P, half3, clang_half3, "v3f16") \
+F(P, float3, clang_float3, "v3f32") \
+F(P, half4, clang_half4, "v4f16") \
+F(P, float4, clang_float4, "v4f32")
 
 // all supported vector data types in Metal SIMD/subgroup functions
 #define FLOOR_METAL_SUB_GROUP_DATA_TYPES_VECTOR(F, P) \
-F(P, short2, clang_short2, "s.v2i16") \
-F(P, ushort2, clang_ushort2, "u.v2i16") \
-F(P, half2, clang_half2, "v2f16") \
-F(P, int2, clang_int2, "s.v2i32") \
-F(P, uint2, clang_uint2, "u.v2i32") \
-F(P, float2, clang_float2, "v2f32") \
-F(P, short3, clang_short3, "s.v3i16") \
-F(P, ushort3, clang_ushort3, "u.v3i16") \
-F(P, half3, clang_half3, "v3f16") \
-F(P, int3, clang_int3, "s.v3i32") \
-F(P, uint3, clang_uint3, "u.v3i32") \
-F(P, float3, clang_float3, "v3f32") \
-F(P, short4, clang_short4, "s.v4i16") \
-F(P, ushort4, clang_ushort4, "u.v4i16") \
-F(P, half4, clang_half4, "v4f16") \
-F(P, int4, clang_int4, "s.v4i32") \
-F(P, uint4, clang_uint4, "u.v4i32") \
-F(P, float4, clang_float4, "v4f32")
+FLOOR_METAL_SUB_GROUP_DATA_TYPES_INT_VECTOR(F, P) \
+FLOOR_METAL_SUB_GROUP_DATA_TYPES_FP_VECTOR(F, P)
+
+// all supported integer data types in Metal SIMD/subgroup functions
+#define FLOOR_METAL_SUB_GROUP_DATA_TYPES_INT(F, P) \
+FLOOR_METAL_SUB_GROUP_DATA_TYPES_INT_SCALAR(F, P) \
+FLOOR_METAL_SUB_GROUP_DATA_TYPES_INT_VECTOR(F, P)
 
 // all supported data types in Metal SIMD/subgroup functions
 #define FLOOR_METAL_SUB_GROUP_DATA_TYPES(F, P) \
@@ -111,9 +132,16 @@ clang_data_type sub_group_reduce_max(clang_data_type value) __attribute__((nodup
 clang_data_type sub_group_inclusive_scan_add(clang_data_type value) __attribute__((noduplicate, convergent)) asm("air.simd_prefix_inclusive_sum." air_type_suffix); \
 clang_data_type sub_group_exclusive_scan_add(clang_data_type value) __attribute__((noduplicate, convergent)) asm("air.simd_prefix_exclusive_sum." air_type_suffix);
 
+#define FLOOR_METAL_AIR_SUBGROUP_OPS_INT(func, floor_data_type, clang_data_type, air_type_suffix) \
+clang_data_type sub_group_reduce_and(clang_data_type value) __attribute__((noduplicate, convergent)) asm("air.simd_and." air_type_suffix); \
+clang_data_type sub_group_reduce_or(clang_data_type value) __attribute__((noduplicate, convergent)) asm("air.simd_or." air_type_suffix); \
+clang_data_type sub_group_reduce_xor(clang_data_type value) __attribute__((noduplicate, convergent)) asm("air.simd_xor." air_type_suffix);
+
 FLOOR_METAL_SUB_GROUP_DATA_TYPES(FLOOR_METAL_AIR_SUBGROUP_OPS, )
+FLOOR_METAL_SUB_GROUP_DATA_TYPES_INT(FLOOR_METAL_AIR_SUBGROUP_OPS_INT, )
 
 #undef FLOOR_METAL_AIR_SUBGROUP_OPS
+#undef FLOOR_METAL_AIR_SUBGROUP_OPS_INT
 
 // defines a list of all supported subgroup data types as: ", type1, type2, type3"
 #define FLOOR_METAL_SUB_GROUP_DATA_TYPES_LIST(func, floor_data_type, clang_data_type, air_type_suffix) , floor_data_type
@@ -157,9 +185,16 @@ template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::ADD, floor_
 template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::MIN, floor_data_type> : public std::true_type {}; \
 template <> struct supports<ALGORITHM::SUB_GROUP_EXCLUSIVE_SCAN, OP::MAX, floor_data_type> : public std::true_type {};
 
+#define FLOOR_METAL_SUPPORT_SUBGROUP_OPS_INT(func, floor_data_type, clang_data_type, air_type_suffix) \
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::AND, floor_data_type> : public std::true_type {}; \
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::OR, floor_data_type> : public std::true_type {}; \
+template <> struct supports<ALGORITHM::SUB_GROUP_REDUCE, OP::XOR, floor_data_type> : public std::true_type {};
+
 FLOOR_METAL_SUB_GROUP_DATA_TYPES(FLOOR_METAL_SUPPORT_SUBGROUP_OPS, )
+FLOOR_METAL_SUB_GROUP_DATA_TYPES_INT(FLOOR_METAL_SUPPORT_SUBGROUP_OPS_INT, )
 
 #undef FLOOR_METAL_SUPPORT_SUBGROUP_OPS
+#undef FLOOR_METAL_SUPPORT_SUBGROUP_OPS_INT
 
 template <OP op, typename data_type>
 requires (op == OP::ADD)
@@ -188,6 +223,36 @@ static auto sub_group_reduce(const data_type input_value) {
 		return data_type::from_clang_vector(sub_group_reduce_max(input_value.to_clang_vector()));
 	} else {
 		return sub_group_reduce_max(input_value);
+	}
+}
+
+template <OP op, typename data_type>
+requires (op == OP::AND && is_sub_group_integer_type_v<data_type>)
+static auto sub_group_reduce(const data_type input_value) {
+	if constexpr (is_floor_vector_v<data_type>) {
+		return data_type::from_clang_vector(sub_group_reduce_and(input_value.to_clang_vector()));
+	} else {
+		return sub_group_reduce_and(input_value);
+	}
+}
+
+template <OP op, typename data_type>
+requires (op == OP::OR && is_sub_group_integer_type_v<data_type>)
+static auto sub_group_reduce(const data_type input_value) {
+	if constexpr (is_floor_vector_v<data_type>) {
+		return data_type::from_clang_vector(sub_group_reduce_or(input_value.to_clang_vector()));
+	} else {
+		return sub_group_reduce_or(input_value);
+	}
+}
+
+template <OP op, typename data_type>
+requires (op == OP::XOR && is_sub_group_integer_type_v<data_type>)
+static auto sub_group_reduce(const data_type input_value) {
+	if constexpr (is_floor_vector_v<data_type>) {
+		return data_type::from_clang_vector(sub_group_reduce_xor(input_value.to_clang_vector()));
+	} else {
+		return sub_group_reduce_xor(input_value);
 	}
 }
 
@@ -237,8 +302,13 @@ static auto sub_group_exclusive_scan(const data_type input_value) {
 
 } // namespace algorithm::group
 
+#undef FLOOR_METAL_SUB_GROUP_DATA_TYPES_INT_SCALAR
+#undef FLOOR_METAL_SUB_GROUP_DATA_TYPES_FP_SCALAR
 #undef FLOOR_METAL_SUB_GROUP_DATA_TYPES_SCALAR
+#undef FLOOR_METAL_SUB_GROUP_DATA_TYPES_INT_VECTOR
+#undef FLOOR_METAL_SUB_GROUP_DATA_TYPES_FP_VECTOR
 #undef FLOOR_METAL_SUB_GROUP_DATA_TYPES_VECTOR
+#undef FLOOR_METAL_SUB_GROUP_DATA_TYPES_INT
 #undef FLOOR_METAL_SUB_GROUP_DATA_TYPES
 
 } // namespace fl

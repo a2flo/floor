@@ -41,6 +41,9 @@ enum class OP {
 	ADD,
 	MIN,
 	MAX,
+	AND,
+	OR,
+	XOR,
 };
 
 //! if the combination of algorithm, operation and data_type is supported, this inherits from std::true_type, otherwise std::false_type
@@ -84,9 +87,12 @@ template <OP op, typename data_type>
 [[maybe_unused]] static auto sub_group_exclusive_scan(const data_type input_value);
 
 
-//! helper min/max functions that work on both scalar and vector types
+//! helper functions that work on both scalar and vector types
 template <typename data_type> struct min_op;
 template <typename data_type> struct max_op;
+template <typename data_type> struct and_op;
+template <typename data_type> struct or_op;
+template <typename data_type> struct xor_op;
 
 //! scalar min(lhs, rhs) function op
 template <typename data_type> requires (ext::is_arithmetic_v<data_type>)
@@ -116,5 +122,46 @@ struct max_op<data_type> {
 		return lhs.maxed(rhs);
 	}
 };
+//! scalar/vector and(lhs, rhs) function op
+template <typename data_type> requires (ext::is_arithmetic_v<data_type> || is_floor_vector_v<data_type>)
+struct and_op<data_type> {
+	inline constexpr data_type operator()(const data_type lhs, const data_type rhs) const {
+		return lhs & rhs;
+	}
+};
+//! scalar/vector or(lhs, rhs) function op
+template <typename data_type> requires (ext::is_arithmetic_v<data_type> || is_floor_vector_v<data_type>)
+struct or_op<data_type> {
+	inline constexpr data_type operator()(const data_type lhs, const data_type rhs) const {
+		return lhs | rhs;
+	}
+};
+//! scalar/vector xor(lhs, rhs) function op
+template <typename data_type> requires (ext::is_arithmetic_v<data_type> || is_floor_vector_v<data_type>)
+struct xor_op<data_type> {
+	inline constexpr data_type operator()(const data_type lhs, const data_type rhs) const {
+		return lhs ^ rhs;
+	}
+};
+
+//! filters integer types that are supported in sub-group operations
+template <typename data_type> struct is_sub_group_integer_type : public std::false_type {};
+template <> struct is_sub_group_integer_type<int16_t> : public std::true_type {};
+template <> struct is_sub_group_integer_type<uint16_t> : public std::true_type {};
+template <> struct is_sub_group_integer_type<short2> : public std::true_type {};
+template <> struct is_sub_group_integer_type<ushort2> : public std::true_type {};
+template <> struct is_sub_group_integer_type<short3> : public std::true_type {};
+template <> struct is_sub_group_integer_type<ushort3> : public std::true_type {};
+template <> struct is_sub_group_integer_type<short4> : public std::true_type {};
+template <> struct is_sub_group_integer_type<ushort4> : public std::true_type {};
+template <> struct is_sub_group_integer_type<int32_t> : public std::true_type {};
+template <> struct is_sub_group_integer_type<uint32_t> : public std::true_type {};
+template <> struct is_sub_group_integer_type<int2> : public std::true_type {};
+template <> struct is_sub_group_integer_type<uint2> : public std::true_type {};
+template <> struct is_sub_group_integer_type<int3> : public std::true_type {};
+template <> struct is_sub_group_integer_type<uint3> : public std::true_type {};
+template <> struct is_sub_group_integer_type<int4> : public std::true_type {};
+template <> struct is_sub_group_integer_type<uint4> : public std::true_type {};
+template <typename T> constexpr bool is_sub_group_integer_type_v = is_sub_group_integer_type<T>::value;
 
 } // namespace fl::algorithm::group
