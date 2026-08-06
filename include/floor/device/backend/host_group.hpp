@@ -176,7 +176,7 @@ floor_inline_always static T host_compute_sub_group_reduce(T lane_var, F&& op) {
 		shfled_var = simd_shuffle_xor(lane_var, lane);
 		lane_var = op(lane_var, T(shfled_var));
 	}
-	return lane_var;
+	return simd_shuffle(lane_var, 0u);
 }
 
 //! performs an inclusive or exclusive scan inside the sub-group using the specific operation/function
