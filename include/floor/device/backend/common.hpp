@@ -34,7 +34,14 @@
 #define _LIBCPP_HAS_NO_VENDOR_AVAILABILITY_ANNOTATIONS 1
 #define _LIBCPP_HAS_NO_ALIGNED_ALLOCATION 1
 #define _LIBCPP_HAS_NO_PLATFORM_WAIT 1
+
+// if enabled, treat assertions as assumptions in device code
+#if defined(FLOOR_ASSERT_IS_ASSUME)
+#define assert(expr) __builtin_assume(expr)
+#else
 #define assert(expr) __builtin_expect(!(expr), 0)
+#endif
+
 #endif
 
 // compute implementation specific headers (pre-std headers)

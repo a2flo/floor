@@ -1094,6 +1094,9 @@ program_data compile_input(const std::string& input,
 	const auto assert_str = std::to_string(options.enable_assert);
 	clang_cmd += " -DFLOOR_ASSERT=" + assert_str;
 	clang_cmd += " -DFLOOR_ASSERT_" + assert_str;
+	if (!options.enable_assert && options.assert_is_assume) {
+		clang_cmd += " -DFLOOR_ASSERT_IS_ASSUME";
+	}
 	
 	// floor function info
 	std::string function_info_file_name;

@@ -284,6 +284,11 @@ namespace fl::toolchain {
 		//! NOTE: printing requires soft-printf to be enabled on Metal/Vulkan/Host-Compute
 		bool enable_assert { false };
 		
+		//! if true, emits __builtin_assume(expr) instead of __builtin_expect(expr) for all assert(expr)
+		//! NOTE: performance impact is very YMMV
+		//! NOTE: this flag is ignored when "enable_assert" is true
+		bool assert_is_assume { false };
+		
 		//! debug options
 		struct {
 			//! if true, enables the emission of target dependent debug info,
