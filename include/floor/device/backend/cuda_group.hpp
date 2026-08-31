@@ -242,6 +242,27 @@ floor_inline_always static uint64_t simd_ballot_64(bool predicate) {
 	return simd_ballot_native(predicate);
 }
 
+#if FLOOR_DEVICE_INFO_CUDA_SM >= 70 && FLOOR_DEVICE_INFO_HAS_SUB_GROUP_MATCH_ANY_NATIVE
+static inline uint32_t simd_match_any(const uint32_t value, const uint32_t valid_mask = ~0u) __attribute__((enable_if(valid_mask == ~0u, ""))) {
+	// mask is known constant ~0u
+	return __nvvm_match_any_sync_i32(valid_mask, value);
+}
+static inline uint32_t simd_match_any(const uint32_t value, const uint32_t valid_mask = ~0u) {
+	uint32_t ret = 0u;
+	// must only be executed for lanes in the mask
+	if (valid_mask & (1u << sub_group_local_id)) {
+		ret = __nvvm_match_any_sync_i32(valid_mask, value);
+	}
+	return ret;
+}
+static inline uint32_t simd_match_any(const uint8_t value, const uint32_t valid_mask = ~0u) {
+	return simd_match_any(uint32_t(value), valid_mask);
+}
+static inline uint32_t simd_match_any(const uint16_t value, const uint32_t valid_mask = ~0u) {
+	return simd_match_any(uint32_t(value), valid_mask);
+}
+#endif
+
 // CUDA parallel group operation implementations / support
 namespace algorithm::group {
 

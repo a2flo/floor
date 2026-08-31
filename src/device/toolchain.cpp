@@ -971,6 +971,13 @@ program_data compile_input(const std::string& input,
 		clang_cmd += " -DFLOOR_DEVICE_INFO_HAS_SUB_GROUP_BALLOT=0 -DFLOOR_DEVICE_INFO_HAS_SUB_GROUP_BALLOT_0";
 	}
 	
+	// handle sub-group match-any native support
+	if (dev.sub_group_match_any_native_support && !disable_sub_groups) {
+		clang_cmd += " -DFLOOR_DEVICE_INFO_HAS_SUB_GROUP_MATCH_ANY_NATIVE=1 -DFLOOR_DEVICE_INFO_HAS_SUB_GROUP_MATCH_ANY_NATIVE_1";
+	} else {
+		clang_cmd += " -DFLOOR_DEVICE_INFO_HAS_SUB_GROUP_MATCH_ANY_NATIVE=0 -DFLOOR_DEVICE_INFO_HAS_SUB_GROUP_MATCH_ANY_NATIVE_0";
+	}
+	
 	// handle cooperative kernel support
 	if (dev.cooperative_kernel_support) {
 		clang_cmd += " -DFLOOR_DEVICE_INFO_HAS_COOPERATIVE_KERNEL=1 -DFLOOR_DEVICE_INFO_HAS_COOPERATIVE_KERNEL_1";

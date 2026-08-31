@@ -275,6 +275,8 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_DEVICE_INFO_HAS_SUB_GROUP_SHUFFLE_1
 #define FLOOR_DEVICE_INFO_HAS_SUB_GROUP_BALLOT 1
 #define FLOOR_DEVICE_INFO_HAS_SUB_GROUP_BALLOT_1
+#define FLOOR_DEVICE_INFO_HAS_SUB_GROUP_MATCH_ANY_NATIVE 0
+#define FLOOR_DEVICE_INFO_HAS_SUB_GROUP_MATCH_ANY_NATIVE_0
 
 // we always emulate a SIMD-width of 32
 #define FLOOR_DEVICE_INFO_SIMD_WIDTH 32u

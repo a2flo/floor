@@ -299,6 +299,15 @@ namespace fl::device_info {
 #endif
 	}
 	
+	//! returns true if the device has native support for sub-group match-any
+	constexpr bool has_sub_group_match_any_native() {
+#if FLOOR_DEVICE_INFO_HAS_SUB_GROUP_MATCH_ANY_NATIVE != 0
+		return true;
+#else
+		return false;
+#endif
+	}
+	
 	//! returns true if the device supports cooperative kernel launchs (currently CUDA with sm_60+)
 	constexpr bool has_cooperative_kernel_support() {
 #if FLOOR_DEVICE_INFO_HAS_COOPERATIVE_KERNEL != 0

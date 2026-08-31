@@ -95,6 +95,7 @@ add_library(${PROJECT_NAME}
 	include/floor/device/backend/cuda.hpp
 	include/floor/device/backend/device_info.hpp
 	include/floor/device/backend/group.hpp
+	include/floor/device/backend/group_post.hpp
 	include/floor/device/backend/host_atomic.hpp
 	include/floor/device/backend/host_group.hpp
 	include/floor/device/backend/host_id.hpp

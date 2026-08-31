@@ -137,6 +137,7 @@ cuda_context::cuda_context(const DEVICE_CONTEXT_FLAGS ctx_flags, const bool has_
 		device.name = dev_name;
 		device.version_str = std::to_string(cc.x) + "." + std::to_string(cc.y);
 		device.driver_version_str = std::to_string(to_driver_major(driver_version)) + "." + std::to_string(to_driver_minor(driver_version));
+		device.sub_group_match_any_native_support = (cc.x >= 7); // since sm_70
 
 		// get all the attributes!
 		size_t global_mem_size = 0;

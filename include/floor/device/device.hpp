@@ -152,6 +152,8 @@ public:
 	bool sub_group_shuffle_support { false };
 	//! true if the device supports sub-group ballot
 	bool sub_group_ballot_support { false };
+	//! true if the device supports sub-group match-any natively
+	bool sub_group_match_any_native_support { false };
 	//! true if the device supports cooperative kernel launchs
 	bool cooperative_kernel_support { false };
 	//! true if the device supports retrieving the primitive ID in the fragment shader

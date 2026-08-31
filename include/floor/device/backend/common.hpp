@@ -312,6 +312,7 @@ floor_inline_always static uint32_t get_num_sub_groups() __attribute__((unavaila
 #elif defined(FLOOR_DEVICE_HOST_COMPUTE)
 #include <floor/device/backend/host_group.hpp>
 #endif
+#include <floor/device/backend/group_post.hpp>
 
 // device logging functions
 #include <floor/device/backend/logger.hpp>

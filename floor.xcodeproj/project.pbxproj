@@ -754,6 +754,7 @@
 		5C84964D261284D50009DBCA /* README.asciidoc */ = {isa = PBXFileReference; lastKnownFileType = text; path = README.asciidoc; sourceTree = "<group>"; };
 		5C90B0EA2F4B599900A5E5C4 /* metal4_resource_tracking.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal4_resource_tracking.hpp; path = include/floor/device/metal/metal4_resource_tracking.hpp; sourceTree = SOURCE_ROOT; };
 		5C91709E21D41EB1005304A5 /* metal */ = {isa = PBXFileReference; lastKnownFileType = folder; name = metal; path = Toolchains/XcodeDefault.xctoolchain/usr/metal/macos/lib/clang/902.9/include/metal; sourceTree = DEVELOPER_DIR; };
+		5C9D1B39304559400078C0EF /* group_post.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = group_post.hpp; sourceTree = "<group>"; };
 		5CAC49B92E323F5C006377F5 /* vulkan_heap.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vulkan_heap.hpp; sourceTree = "<group>"; };
 		5CAC49BA2E323F5C006377F5 /* vulkan_heap.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = vulkan_heap.cpp; sourceTree = "<group>"; };
 		5CBE41DD1B31D34900AE0E5F /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
@@ -1344,6 +1345,7 @@
 				5C6DCA952DB098D300627453 /* cuda_sampler.hpp */,
 				5C6DCA962DB098D300627453 /* device_info.hpp */,
 				5C6DCA972DB098D300627453 /* group.hpp */,
+				5C9D1B39304559400078C0EF /* group_post.hpp */,
 				5C6DCA982DB098D300627453 /* host.hpp */,
 				5C6DCA992DB098D300627453 /* host_atomic.hpp */,
 				5C1E53702E813B060035371D /* host_group.hpp */,
