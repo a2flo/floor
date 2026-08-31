@@ -52,35 +52,14 @@ namespace fl::algorithm {
 	#endif
 	};
 	
-	//! returns the minimum/lowest value representable by "data_type" (used to init _max algorithms)
-	template <typename data_type> requires (ext::is_arithmetic_v<data_type>)
-	static inline constexpr data_type min_value() {
-		return std::numeric_limits<decay_as_t<data_type>>::lowest();
-	}
-	
-	//! returns the minimum/lowest value representable by "data_type" (used to init _max algorithms)
-	template <typename data_type> requires (is_floor_vector_v<data_type>)
-	static inline constexpr data_type min_value() {
-		return decay_as_t<data_type> { std::numeric_limits<typename data_type::decayed_scalar_type>::lowest() };
-	}
-	
-	//! returns the maximum value representable by "data_type" (used to init _min algorithms)
-	template <typename data_type> requires (ext::is_arithmetic_v<data_type>)
-	static inline constexpr data_type max_value() {
-		return std::numeric_limits<decay_as_t<data_type>>::max();
-	}
-	
-	//! returns the maximum value representable by "data_type" (used to init _min algorithms)
-	template <typename data_type> requires (is_floor_vector_v<data_type>)
-	static inline constexpr data_type max_value() {
-		return decay_as_t<data_type> { std::numeric_limits<typename data_type::decayed_scalar_type>::max() };
-	}
-	
 	using fl::algorithm::group::min_op;
 	using fl::algorithm::group::max_op;
 	using fl::algorithm::group::and_op;
 	using fl::algorithm::group::or_op;
 	using fl::algorithm::group::xor_op;
+	
+	using fl::algorithm::group::min_value;
+	using fl::algorithm::group::max_value;
 	
 	//////////////////////////////////////////
 	// sub-group reduce functions

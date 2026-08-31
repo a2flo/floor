@@ -292,7 +292,7 @@ floor_inline_always static T cuda_sub_group_reduce(T lane_var, F&& op) {
 }
 
 template <bool is_exclusive, typename T, typename F> requires (sizeof(T) <= 4)
-floor_inline_always static T cuda_sub_group_scan(T lane_var, F&& op) {
+floor_inline_always static T cuda_sub_group_scan(T lane_var, F&& op, T ident) {
 	const auto lane_idx = __nvvm_read_ptx_sreg_laneid();
 	
 	using type_32b = std::conditional_t<fl::ext::is_floating_point_v<T>, float,
@@ -308,9 +308,7 @@ floor_inline_always static T cuda_sub_group_scan(T lane_var, F&& op) {
 			asm volatile("shfl.sync.up.b32 %0, %1, %2, 0, 0xFFFFFFFF;"
 						 : "=r"(shfled_var) : "r"(lane_var_32b), "i"(delta));
 		}
-		if (lane_idx >= delta) {
-			lane_var_32b = op(lane_var_32b, shfled_var);
-		}
+		lane_var_32b = (lane_idx >= delta ? op(lane_var_32b, shfled_var) : lane_var_32b);
 	}
 	
 	if constexpr (is_exclusive) {
@@ -318,7 +316,7 @@ floor_inline_always static T cuda_sub_group_scan(T lane_var, F&& op) {
 		const auto incl_result = lane_var_32b;
 		asm volatile("shfl.sync.up.b32 %0, %1, 1, 0, 0xFFFFFFFF;"
 					 : "=r"(lane_var_32b) : "r"(incl_result));
-		return T(lane_idx == 0 ? T(0) : lane_var_32b);
+		return T(lane_idx == 0 ? ident : lane_var_32b);
 	} else {
 		return T(lane_var_32b);
 	}
@@ -462,37 +460,37 @@ static auto sub_group_reduce(const data_type input_value) {
 template <OP op, typename data_type>
 requires (op == OP::ADD)
 static auto sub_group_inclusive_scan(const data_type input_value) {
-	return cuda_sub_group_scan<false>(input_value, std::plus<data_type> {});
+	return cuda_sub_group_scan<false>(input_value, std::plus<data_type> {}, data_type(0));
 }
 
 template <OP op, typename data_type>
 requires (op == OP::MIN)
 static auto sub_group_inclusive_scan(const data_type input_value) {
-	return cuda_sub_group_scan<false>(input_value, min_op<data_type> {});
+	return cuda_sub_group_scan<false>(input_value, min_op<data_type> {}, max_value<data_type>());
 }
 
 template <OP op, typename data_type>
 requires (op == OP::MAX)
 static auto sub_group_inclusive_scan(const data_type input_value) {
-	return cuda_sub_group_scan<false>(input_value, max_op<data_type> {});
+	return cuda_sub_group_scan<false>(input_value, max_op<data_type> {}, min_value<data_type>());
 }
 
 template <OP op, typename data_type>
 requires (op == OP::ADD)
 static auto sub_group_exclusive_scan(const data_type input_value) {
-	return cuda_sub_group_scan<true>(input_value, std::plus<data_type> {});
+	return cuda_sub_group_scan<true>(input_value, std::plus<data_type> {}, data_type(0));
 }
 
 template <OP op, typename data_type>
 requires (op == OP::MIN)
 static auto sub_group_exclusive_scan(const data_type input_value) {
-	return cuda_sub_group_scan<true>(input_value, min_op<data_type> {});
+	return cuda_sub_group_scan<true>(input_value, min_op<data_type> {}, max_value<data_type>());
 }
 
 template <OP op, typename data_type>
 requires (op == OP::MAX)
 static auto sub_group_exclusive_scan(const data_type input_value) {
-	return cuda_sub_group_scan<true>(input_value, max_op<data_type> {});
+	return cuda_sub_group_scan<true>(input_value, max_op<data_type> {}, min_value<data_type>());
 }
 
 } // namespace algorithm::group

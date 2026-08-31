@@ -150,22 +150,20 @@ FLOOR_METAL_SUB_GROUP_DATA_TYPES_INT(FLOOR_METAL_AIR_SUBGROUP_OPS_INT, )
 template <bool is_exclusive, typename T, typename F>
 requires (fl::device_info::has_fixed_known_simd_width() &&
 		  ext::is_same_as_any_v<T FLOOR_METAL_SUB_GROUP_DATA_TYPES(FLOOR_METAL_SUB_GROUP_DATA_TYPES_LIST, )>)
-floor_inline_always static T metal_sub_group_scan(T lane_var, F&& op) {
+floor_inline_always static T metal_sub_group_scan(T lane_var, F&& op, T ident) {
 	const auto lane_idx = get_sub_group_local_id();
 	T shfled_var;
 #pragma unroll
 	for (uint32_t delta = 1u; delta <= (fl::device_info::simd_width() / 2u); delta <<= 1u) {
 		shfled_var = simd_shuffle_up(lane_var, delta);
-		if (lane_idx >= delta) {
-			lane_var = op(lane_var, shfled_var);
-		}
+		lane_var = (lane_idx >= delta ? op(lane_var, shfled_var) : lane_var);
 	}
 	
 	if constexpr (is_exclusive) {
 		// if this is an exclusive scan: shift one up
 		const auto incl_result = lane_var;
 		lane_var = simd_shuffle_up(incl_result, 1);
-		return T(lane_idx == 0 ? T(0) : lane_var);
+		return T(lane_idx == 0 ? ident : lane_var);
 	} else {
 		return lane_var;
 	}
@@ -269,13 +267,13 @@ static auto sub_group_inclusive_scan(const data_type input_value) {
 template <OP op, typename data_type>
 requires (op == OP::MIN)
 static auto sub_group_inclusive_scan(const data_type input_value) {
-	return metal_sub_group_scan<false>(input_value, min_op<data_type> {});
+	return metal_sub_group_scan<false>(input_value, min_op<data_type> {}, max_value<data_type>());
 }
 
 template <OP op, typename data_type>
 requires (op == OP::MAX)
 static auto sub_group_inclusive_scan(const data_type input_value) {
-	return metal_sub_group_scan<false>(input_value, max_op<data_type> {});
+	return metal_sub_group_scan<false>(input_value, max_op<data_type> {}, min_value<data_type>());
 }
 
 template <OP op, typename data_type>
@@ -291,13 +289,13 @@ static auto sub_group_exclusive_scan(const data_type input_value) {
 template <OP op, typename data_type>
 requires (op == OP::MIN)
 static auto sub_group_exclusive_scan(const data_type input_value) {
-	return metal_sub_group_scan<true>(input_value, min_op<data_type> {});
+	return metal_sub_group_scan<true>(input_value, min_op<data_type> {}, max_value<data_type>());
 }
 
 template <OP op, typename data_type>
 requires (op == OP::MAX)
 static auto sub_group_exclusive_scan(const data_type input_value) {
-	return metal_sub_group_scan<true>(input_value, max_op<data_type> {});
+	return metal_sub_group_scan<true>(input_value, max_op<data_type> {}, min_value<data_type>());
 }
 
 } // namespace algorithm::group

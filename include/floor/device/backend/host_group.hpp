@@ -182,22 +182,20 @@ floor_inline_always static T host_compute_sub_group_reduce(T lane_var, F&& op) {
 //! performs an inclusive or exclusive scan inside the sub-group using the specific operation/function
 template <bool is_exclusive, typename T, typename F>
 requires (ext::is_same_as_any_v<T FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES(FLOOR_HOST_COMPUTE_SUB_GROUP_DATA_TYPES_LIST, , )>)
-floor_inline_always static T host_compute_sub_group_scan(T lane_var, F&& op) {
+floor_inline_always static T host_compute_sub_group_scan(T lane_var, F&& op, T ident) {
 	const auto lane_idx = get_sub_group_local_id();
 	T shfled_var;
 #pragma unroll
 	for (uint32_t delta = 1u; delta <= (fl::host_limits::simd_width / 2u); delta <<= 1u) {
 		shfled_var = simd_shuffle_up(lane_var, delta);
-		if (lane_idx >= delta) {
-			lane_var = op(lane_var, shfled_var);
-		}
+		lane_var = (lane_idx >= delta ? op(lane_var, shfled_var) : lane_var);
 	}
 	
 	if constexpr (is_exclusive) {
 		// if this is an exclusive scan: shift one up
 		const auto incl_result = lane_var;
 		lane_var = simd_shuffle_up(incl_result, 1);
-		return T(lane_idx == 0 ? T(0) : lane_var);
+		return T(lane_idx == 0 ? ident : lane_var);
 	} else {
 		return lane_var;
 	}
@@ -267,37 +265,37 @@ static inline auto sub_group_reduce(const data_type input_value) {
 template <OP op, typename data_type>
 requires (op == OP::ADD)
 static inline auto sub_group_inclusive_scan(const data_type input_value) {
-	return host_compute_sub_group_scan<false>(input_value, std::plus<data_type> {});
+	return host_compute_sub_group_scan<false>(input_value, std::plus<data_type> {}, data_type(0));
 }
 
 template <OP op, typename data_type>
 requires (op == OP::MIN)
 static inline auto sub_group_inclusive_scan(const data_type input_value) {
-	return host_compute_sub_group_scan<false>(input_value, min_op<data_type> {});
+	return host_compute_sub_group_scan<false>(input_value, min_op<data_type> {}, max_value<data_type>());
 }
 
 template <OP op, typename data_type>
 requires (op == OP::MAX)
 static inline auto sub_group_inclusive_scan(const data_type input_value) {
-	return host_compute_sub_group_scan<false>(input_value, max_op<data_type> {});
+	return host_compute_sub_group_scan<false>(input_value, max_op<data_type> {}, min_value<data_type>());
 }
 
 template <OP op, typename data_type>
 requires (op == OP::ADD)
 static inline auto sub_group_exclusive_scan(const data_type input_value) {
-	return host_compute_sub_group_scan<true>(input_value, std::plus<data_type> {});
+	return host_compute_sub_group_scan<true>(input_value, std::plus<data_type> {}, data_type(0));
 }
 
 template <OP op, typename data_type>
 requires (op == OP::MIN)
 static inline auto sub_group_exclusive_scan(const data_type input_value) {
-	return host_compute_sub_group_scan<true>(input_value, min_op<data_type> {});
+	return host_compute_sub_group_scan<true>(input_value, min_op<data_type> {}, max_value<data_type>());
 }
 
 template <OP op, typename data_type>
 requires (op == OP::MAX)
 static inline auto sub_group_exclusive_scan(const data_type input_value) {
-	return host_compute_sub_group_scan<true>(input_value, max_op<data_type> {});
+	return host_compute_sub_group_scan<true>(input_value, max_op<data_type> {}, min_value<data_type>());
 }
 
 } // namespace algorithm::group

@@ -164,4 +164,28 @@ template <> struct is_sub_group_integer_type<int4> : public std::true_type {};
 template <> struct is_sub_group_integer_type<uint4> : public std::true_type {};
 template <typename T> constexpr bool is_sub_group_integer_type_v = is_sub_group_integer_type<T>::value;
 
+//! returns the minimum/lowest value representable by "data_type" (used to init _max algorithms)
+template <typename data_type> requires (ext::is_arithmetic_v<data_type>)
+static inline constexpr data_type min_value() {
+	return std::numeric_limits<decay_as_t<data_type>>::lowest();
+}
+
+//! returns the minimum/lowest value representable by "data_type" (used to init _max algorithms)
+template <typename data_type> requires (is_floor_vector_v<data_type>)
+static inline constexpr data_type min_value() {
+	return decay_as_t<data_type> { std::numeric_limits<typename data_type::decayed_scalar_type>::lowest() };
+}
+
+//! returns the maximum value representable by "data_type" (used to init _min algorithms)
+template <typename data_type> requires (ext::is_arithmetic_v<data_type>)
+static inline constexpr data_type max_value() {
+	return std::numeric_limits<decay_as_t<data_type>>::max();
+}
+
+//! returns the maximum value representable by "data_type" (used to init _min algorithms)
+template <typename data_type> requires (is_floor_vector_v<data_type>)
+static inline constexpr data_type max_value() {
+	return decay_as_t<data_type> { std::numeric_limits<typename data_type::decayed_scalar_type>::max() };
+}
+
 } // namespace fl::algorithm::group
