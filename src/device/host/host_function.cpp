@@ -1367,6 +1367,8 @@ uint32_t floor_host_compute_num_sub_groups_get() FLOOR_HOST_COMPUTE_CC {
 }
 
 // Host-Compute SIMD group functions
+template <typename T> struct decay_as { using type = std::decay_t<T>; }; // don't want to include common.hpp for this
+template <typename T> using decay_as_t = typename decay_as<T>::type;
 #include <floor/device/backend/group.hpp>
 #include <floor/device/backend/host_group.hpp>
 
