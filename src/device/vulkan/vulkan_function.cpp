@@ -146,7 +146,9 @@ vulkan_function_entry::spec_entry* vulkan_function_entry::specialize(const vulka
 		.basePipelineIndex = 0,
 	};
 #if defined(FLOOR_DEBUG)
-	log_debug("specializing $ for $ SIMD $ ...", info->name, work_group_size, simd_width);
+	if (floor::get_toolchain_log_function_load_info()) {
+		log_debug("specializing $ for $ SIMD $ ...", info->name, work_group_size, simd_width);
+	}
 #endif
 	VK_CALL_RET(vkCreateComputePipelines(dev.device, cache, 1, &pipeline_info, nullptr, &spec_entry.pipeline),
 				"failed to create compute pipeline (" + info->name + ", " + work_group_size.to_string() + ", " +

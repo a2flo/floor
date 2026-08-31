@@ -91,6 +91,10 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 		return;
 	}
 	
+#if defined(FLOOR_DEBUG) || defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
+	const auto log_function_load_info = floor::get_toolchain_log_function_load_info();
+#endif
+	
 	@autoreleasepool {
 		// create all functions of all device programs
 		// note that this essentially reshuffles the program "device -> functions" data to "functions -> devices"
@@ -218,10 +222,12 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 							supports_indirect_compute = ([kernel_state supportIndirectCommandBuffers] ==
 														 MTL4IndirectCommandBufferSupportStateEnabled);
 #if defined(FLOOR_DEBUG) || defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
-							log_debug("$ ($): max work-items: $, simd width: $, local mem: $, indirect: $",
-									  info.name, prog.first->name,
-									  [kernel_state maxTotalThreadsPerThreadgroup], [kernel_state threadExecutionWidth],
-									  [kernel_state staticThreadgroupMemoryLength], supports_indirect_compute ? "yes" : "no");
+							if (log_function_load_info) {
+								log_debug("$ ($): max work-items: $, simd width: $, local mem: $, indirect: $",
+										  info.name, prog.first->name,
+										  [kernel_state maxTotalThreadsPerThreadgroup], [kernel_state threadExecutionWidth],
+										  [kernel_state staticThreadgroupMemoryLength], supports_indirect_compute ? "yes" : "no");
+							}
 #endif
 							
 							
@@ -230,7 +236,9 @@ device_program(retrieve_unique_function_names(programs_)), programs(std::move(pr
 #endif
 						} else {
 #if defined(FLOOR_DEBUG) || defined(FLOOR_IOS) || defined(FLOOR_VISIONOS)
-							log_debug("$ ($)", info.name, prog.first->name);
+							if (log_function_load_info) {
+								log_debug("$ ($)", info.name, prog.first->name);
+							}
 #endif
 						}
 						

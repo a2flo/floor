@@ -370,6 +370,7 @@ bool floor::init(const init_state& state) {
 		config.keep_binaries = config_doc.get<bool>("toolchain.keep_binaries", false);
 		config.use_cache = config_doc.get<bool>("toolchain.use_cache", true);
 		config.log_commands = config_doc.get<bool>("toolchain.log_commands", false);
+		config.log_function_load_info = config_doc.get<bool>("toolchain.log_function_load_info", true);
 		config.internal_skip_toolchain_check = config_doc.get<bool>("toolchain._skip_toolchain_check", false);
 		config.internal_claim_toolchain_version = config_doc.get<uint32_t>("toolchain._claim_toolchain_version", 0u);
 		
@@ -1589,6 +1590,9 @@ bool floor::get_toolchain_use_cache() {
 }
 bool floor::get_toolchain_log_commands() {
 	return config.log_commands;
+}
+bool floor::get_toolchain_log_function_load_info() {
+	return config.log_function_load_info;
 }
 
 const std::string& floor::get_toolchain_default_compiler() {

@@ -105,15 +105,6 @@ public:
 	//! returns true if the logger was initialized
 	static bool is_initialized();
 	
-protected:
-	// static class
-	logger(const logger&) = delete;
-	~logger() = delete;
-	logger& operator=(const logger&) = delete;
-	
-	//! handles the formatting of log messages
-	static bool prepare_log(std::stringstream& buffer, const LOG_TYPE& type, const char* file, const char* func);
-	
 	template <bool is_enum_flag, typename U> struct enum_helper_type {
 		using type = U;
 	};
@@ -194,6 +185,15 @@ protected:
 				break;
 		}
 	}
+	
+protected:
+	// static class
+	logger(const logger&) = delete;
+	~logger() = delete;
+	logger& operator=(const logger&) = delete;
+	
+	//! handles the formatting of log messages
+	static bool prepare_log(std::stringstream& buffer, const LOG_TYPE& type, const char* file, const char* func);
 	
 	//! internal logging function (will be called in the end when there are no more args)
 	static void log_internal(std::stringstream& buffer, const LOG_TYPE& type, const char* str);

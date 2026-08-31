@@ -247,6 +247,7 @@ public:
 	static bool get_toolchain_keep_binaries();
 	static bool get_toolchain_use_cache();
 	static bool get_toolchain_log_commands();
+	static bool get_toolchain_log_function_load_info();
 	
 	// generic toolchain
 	static const std::string& get_toolchain_default_compiler();
@@ -405,7 +406,7 @@ protected:
 		uint32_t mdouble_click_time = 200;
 		uint32_t rdouble_click_time = 200;
 		
-		// compute
+		// compute & graphics
 		std::string backend;
 		bool debug = false;
 		bool profiling = false;
@@ -414,6 +415,7 @@ protected:
 		bool keep_binaries = true;
 		bool use_cache = true;
 		bool log_commands = false;
+		bool log_function_load_info = true;
 		bool internal_skip_toolchain_check = false;
 		uint32_t internal_claim_toolchain_version = 0u;
 		
