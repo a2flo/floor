@@ -32,7 +32,7 @@ static inline uint32_t simd_match_any_generic(const data_type value, const uint3
 	uint32_t match_mask = (valid_mask & (1u << sub_group_local_id) ? valid_mask : 0u);
 #pragma unroll
 	for (uint16_t i = 0; i < sizeof(data_type) * 8u; ++i) {
-		const auto is_bit_set = ((value >> i) & 0b1u);
+		const bool is_bit_set = (value & (1u << i));
 		const auto lane_mask = simd_ballot(is_bit_set);
 		match_mask &= (is_bit_set ? lane_mask : ~lane_mask);
 	}
@@ -44,7 +44,7 @@ static inline uint32_t simd_match_any_generic(const data_type value) {
 	uint32_t match_mask = ~0u;
 #pragma unroll
 	for (uint16_t i = 0; i < sizeof(data_type) * 8u; ++i) {
-		const auto is_bit_set = ((value >> i) & 0b1u);
+		const bool is_bit_set = (value & (1u << i));
 		const auto lane_mask = simd_ballot(is_bit_set);
 		match_mask &= (is_bit_set ? lane_mask : ~lane_mask);
 	}
