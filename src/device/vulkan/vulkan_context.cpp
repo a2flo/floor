@@ -2857,15 +2857,18 @@ bool vulkan_context::reinit_renderer(const uint2 screen_size) {
 	
 	// choose present mode (vsync is always supported)
 	VkPresentModeKHR present_mode = VK_PRESENT_MODE_FIFO_KHR;
-	if(!floor::get_vsync()) {
+	if (!floor::get_vsync()) {
 		uint32_t mode_count = 0;
 		VK_CALL_RET(vkGetPhysicalDeviceSurfacePresentModesKHR(screen.render_device->physical_device, screen.surface, &mode_count, nullptr),
 					"failed to query surface present mode count", false)
 		std::vector<VkPresentModeKHR> present_modes(mode_count);
 		VK_CALL_RET(vkGetPhysicalDeviceSurfacePresentModesKHR(screen.render_device->physical_device, screen.surface, &mode_count, present_modes.data()),
 					"failed to query surface present modes", false)
-		if(find(present_modes.begin(), present_modes.end(), VK_PRESENT_MODE_IMMEDIATE_KHR) != present_modes.end()) {
+		if (find(present_modes.begin(), present_modes.end(), VK_PRESENT_MODE_IMMEDIATE_KHR) != present_modes.end()) {
 			present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+		} else if (find(present_modes.begin(), present_modes.end(), VK_PRESENT_MODE_MAILBOX_KHR) != present_modes.end()) {
+			present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
+			log_warn("immediate present mode not supported, falling back to mailbox");
 		}
 	}
 	
