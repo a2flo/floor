@@ -144,13 +144,13 @@
 // simple vector operation that either returns a new vector object or is the resp. assignment operation
 #define FLOOR_VEC_OP(op) \
 	constexpr vector_type operator op (const scalar_type& val) const { \
-		return { FLOOR_VEC_OP_EXPAND(this->, op, val, FLOOR_COMMA, FLOOR_VEC_RHS_SCALAR) }; \
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, scalar_type FLOOR_PAREN_LEFT, op val FLOOR_PAREN_RIGHT) }; \
 	} \
 	constexpr vector_type operator op (const vector_type& vec) const { \
-		return { FLOOR_VEC_OP_EXPAND(this->, op, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC) }; \
+		return { FLOOR_VEC_EXPAND_DUAL_ENCLOSED(vec., op, scalar_type, , FLOOR_COMMA) }; \
 	} \
 	constexpr friend vector_type operator op (const scalar_type& val, const vector_type& v) { \
-		return { FLOOR_VEC_UNARY_OP_EXPAND(val op, , v., FLOOR_COMMA) }; \
+		return { FLOOR_VEC_UNARY_OP_EXPAND(scalar_type FLOOR_PAREN_LEFT val op, FLOOR_PAREN_RIGHT, v., FLOOR_COMMA) }; \
 	} \
 	constexpr vector_type& operator op##= (const scalar_type& val) noexcept { \
 		FLOOR_VEC_OP_EXPAND(this->, op##=, val, FLOOR_SEMICOLON, FLOOR_VEC_RHS_SCALAR); \

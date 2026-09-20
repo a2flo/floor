@@ -87,6 +87,13 @@
 #define floor_force_nonnull(value) (value)
 #endif
 
+// compiler assumption
+#if defined(__clang__)
+#define floor_assume(x) __builtin_assume(x)
+#else
+#define floor_assume(x) do {} while (false)
+#endif
+
 // set compute defines if host-based compute is enabled
 #if !defined(FLOOR_NO_HOST_COMPUTE) && !defined(FLOOR_DEVICE)
 #define FLOOR_DEVICE 1
