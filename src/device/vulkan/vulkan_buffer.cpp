@@ -323,7 +323,7 @@ void vulkan_buffer::read(const device_queue& cqueue, void* dst, const size_t siz
 	if (has_flag<MEMORY_FLAG::HOST_READ_STAGING>(memory_flags) &&
 		!has_flag<MEMORY_FLAG::HOST_READ_BACK_OPTIMIZE>(memory_flags) &&
 		read_size > 4096u) {
-		auto tmp_read_back = cqueue.get_context().create_buffer(cqueue, read_size,
+		auto tmp_read_back = cqueue.get_context().create_buffer(cqueue, const_math::round_next_multiple(read_size, 4uz),
 																MEMORY_FLAG::WRITE | MEMORY_FLAG::HOST_READ |
 																MEMORY_FLAG::HOST_READ_BACK_OPTIMIZE |
 																MEMORY_FLAG::VULKAN_MAY_USE_HOST_MEMORY |
