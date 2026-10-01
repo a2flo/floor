@@ -30,7 +30,9 @@ namespace fl {
 template <typename data_type>
 static inline uint32_t simd_match_any_generic(const data_type value, const uint32_t valid_mask) {
 	uint32_t match_mask = (valid_mask & (1u << sub_group_local_id) ? valid_mask : 0u);
+#if !defined(FLOOR_DEVICE_HOST_COMPUTE) || defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
 #pragma unroll
+#endif
 	for (uint16_t i = 0; i < sizeof(data_type) * 8u; ++i) {
 		const bool is_bit_set = (value & (1u << i));
 		const auto lane_mask = simd_ballot(is_bit_set);
@@ -42,7 +44,9 @@ static inline uint32_t simd_match_any_generic(const data_type value, const uint3
 template <typename data_type>
 static inline uint32_t simd_match_any_generic(const data_type value) {
 	uint32_t match_mask = ~0u;
+#if !defined(FLOOR_DEVICE_HOST_COMPUTE) || defined(FLOOR_DEVICE_HOST_COMPUTE_IS_DEVICE)
 #pragma unroll
+#endif
 	for (uint16_t i = 0; i < sizeof(data_type) * 8u; ++i) {
 		const bool is_bit_set = (value & (1u << i));
 		const auto lane_mask = simd_ballot(is_bit_set);
