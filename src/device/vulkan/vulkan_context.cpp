@@ -1662,8 +1662,7 @@ enable_renderer(enable_renderer_) {
 		
 		// NOTE: if mesh shading is supported, sub-group operations *must* be supported as well
 		const VkShaderStageFlags sg_required_mesh_stages = (VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT);
-		// TODO: optional VK_SHADER_STAGE_VERTEX_BIT?
-		const VkShaderStageFlags sg_required_stages = (VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT |
+		const VkShaderStageFlags sg_required_stages = (VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT |
 													   (mesh_shading_support ? sg_required_mesh_stages : VkShaderStageFlags(0)));
 		const auto sg_required_ops = (VK_SUBGROUP_FEATURE_BASIC_BIT | VK_SUBGROUP_FEATURE_ARITHMETIC_BIT |
 									  VK_SUBGROUP_FEATURE_SHUFFLE_BIT | VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT |
@@ -1676,6 +1675,10 @@ enable_renderer(enable_renderer_) {
 			(vulkan11_props.subgroupSupportedOperations & sg_required_ops) != sg_required_ops) {
 			log_error("sub-group requirements are not fulfilled by $", props.deviceName);
 			continue;
+		}
+		const auto vertex_shader_subgroup_support = (vulkan11_props.subgroupSupportedStages & VK_SHADER_STAGE_VERTEX_BIT);
+		if (!vertex_shader_subgroup_support) {
+			log_warn("sub-group operations in vertex shaders are not supported by $", props.deviceName);
 		}
 		
 		if (math::popcount(vulkan13_props.minSubgroupSize) != 1 || math::popcount(vulkan13_props.maxSubgroupSize) != 1) {
@@ -2279,6 +2282,8 @@ enable_renderer(enable_renderer_) {
 		
 		device.mesh_shading_support = mesh_shading_support;
 		device.mesh_shading_multi_view_support = mesh_shading_multi_view_support;
+		
+		device.vertex_shader_subgroup_support = vertex_shader_subgroup_support;
 		
 		device.pipeline_stage_all_graphics = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
 		device.shader_stage_all_graphics = VK_SHADER_STAGE_ALL_GRAPHICS;

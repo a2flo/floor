@@ -112,14 +112,13 @@ static std::unique_ptr<vulkan_cmd_completion_handler> vk_cmd_completion_handler;
 struct vulkan_command_pool_t {
 	VkCommandPool cmd_pool { nullptr };
 	const vulkan_device& dev;
-	const vulkan_queue& queue;
 	const bool is_secondary { false };
 	const bool no_blocking { false };
 	const bool sema_wait_polling { false };
 	static inline std::atomic<bool> is_ctx_shutdown { false };
 	
-	vulkan_command_pool_t(const vulkan_device& dev_, const vulkan_queue& queue_, const bool is_secondary_) :
-	dev(dev_), queue(queue_), is_secondary(is_secondary_),
+	vulkan_command_pool_t(const vulkan_device& dev_, const bool is_secondary_) :
+	dev(dev_), is_secondary(is_secondary_),
 	no_blocking(has_flag<DEVICE_CONTEXT_FLAGS::VULKAN_NO_BLOCKING>(dev.context->get_context_flags())),
 	sema_wait_polling(floor::get_vulkan_sema_wait_polling()) {}
 	
@@ -211,7 +210,8 @@ struct vulkan_command_pool_t {
 	}
 	
 	//! submits a command buffer to the device queue
-	void submit_command_buffer(vulkan_command_buffer&& cmd_buffer,
+	void submit_command_buffer(const vulkan_queue& queue,
+							   vulkan_command_buffer&& cmd_buffer,
 							   std::function<void(const vulkan_command_buffer&)>&& completion_handler,
 							   const bool blocking,
 							   std::vector<vulkan_queue::wait_fence_t>&& wait_fences,
@@ -393,8 +393,8 @@ struct vulkan_command_pool_storage {
 	static inline fl::flat_map<vulkan_command_pool_t*, std::unique_ptr<vulkan_command_pool_t>> cmd_pools GUARDED_BY(cmd_pools_lock);
 	
 	//! creates a new command pool, returning a *non-owning* reference to it
-	static vulkan_command_pool_t* create_cmd_pool(const vulkan_device& dev, const vulkan_queue& queue, const bool is_secondary) {
-		auto cmd_pool = std::make_unique<vulkan_command_pool_t>(dev, queue, is_secondary);
+	static vulkan_command_pool_t* create_cmd_pool(const vulkan_device& dev, const bool is_secondary) {
+		auto cmd_pool = std::make_unique<vulkan_command_pool_t>(dev, is_secondary);
 		auto cmd_pool_ret = cmd_pool.get();
 		{
 			GUARD(cmd_pools_lock);
@@ -415,21 +415,53 @@ struct vulkan_command_pool_storage {
 	}
 };
 
+//! command pool pointers for primary/second cmd buffers * ALL/COMPUTE queue types
+struct command_pool_pointers_t {
+	vulkan_command_pool_t* primary { nullptr };
+	vulkan_command_pool_t* secondary { nullptr };
+	vulkan_command_pool_t* compute_primary { nullptr };
+	vulkan_command_pool_t* compute_secondary { nullptr };
+};
+
 //! since command pools are created per-thread and we don't necessarily have a clean direct way of destructing command pool resources,
 //! we do this via a static thread-local RAII class instead, with the destructor in it being called once the thread exits
 static thread_local struct vulkan_command_pool_destructor_t {
 	vulkan_command_pool_destructor_t() = default;
 	~vulkan_command_pool_destructor_t() {
-		if (primary_pool) {
-			vulkan_command_pool_storage::destroy_cmd_pool(primary_pool);
+		if (pools.primary) {
+			vulkan_command_pool_storage::destroy_cmd_pool(pools.primary);
 		}
-		if (secondary_pool) {
-			vulkan_command_pool_storage::destroy_cmd_pool(secondary_pool);
+		if (pools.secondary) {
+			vulkan_command_pool_storage::destroy_cmd_pool(pools.secondary);
+		}
+		if (pools.compute_primary) {
+			vulkan_command_pool_storage::destroy_cmd_pool(pools.compute_primary);
+		}
+		if (pools.compute_secondary) {
+			vulkan_command_pool_storage::destroy_cmd_pool(pools.compute_secondary);
 		}
 	}
 	
-	vulkan_command_pool_t* primary_pool { nullptr };
-	vulkan_command_pool_t* secondary_pool { nullptr };
+	void register_pool(vulkan_command_pool_t* pool, const bool is_secondary, const device_queue::QUEUE_TYPE type) {
+		assert(pool);
+		if (type == device_queue::QUEUE_TYPE::ALL) {
+			if (!is_secondary) {
+				pools.primary = pool;
+			} else {
+				pools.secondary = pool;
+			}
+		} else {
+			if (!is_secondary) {
+				pools.compute_primary = pool;
+			} else {
+				pools.compute_secondary = pool;
+			}
+		}
+	}
+	
+protected:
+	command_pool_pointers_t pools;
+	
 } vulkan_command_pool_destructor {};
 
 //! internal Vulkan device queue implementation
@@ -437,13 +469,12 @@ struct vulkan_queue_impl {
 	const vulkan_device& dev;
 	const vulkan_queue& queue;
 	const uint32_t family_index;
+	const device_queue::QUEUE_TYPE type;
 	//! per-thread/thread-local Vulkan command pool/buffers
-	static inline thread_local vulkan_command_pool_t* thread_primary_cmd_pool { nullptr };
-	//! per-thread/thread-local Vulkan secondary command pool/buffers
-	static inline thread_local vulkan_command_pool_t* thread_secondary_cmd_pool { nullptr };
+	static inline thread_local command_pool_pointers_t thread_cmd_pool;
 	
-	vulkan_queue_impl(const vulkan_queue& queue_, const vulkan_device& dev_, const uint32_t& family_index_) :
-	dev(dev_), queue(queue_), family_index(family_index_) {}
+	vulkan_queue_impl(const vulkan_queue& queue_, const vulkan_device& dev_, const uint32_t family_index_, const device_queue::QUEUE_TYPE type_) :
+	dev(dev_), queue(queue_), family_index(family_index_), type(type_) {}
 	
 	//! creates and initializes the per-thread/thread-local primary command pool/buffers
 	bool create_thread_primary_command_pool() {
@@ -456,18 +487,16 @@ struct vulkan_queue_impl {
 	}
 	
 	bool create_thread_command_pool(const bool is_secondary) {
-		auto& cmd_pool = (!is_secondary ? thread_primary_cmd_pool : thread_secondary_cmd_pool);
+		auto& cmd_pool = (type == device_queue::QUEUE_TYPE::ALL ?
+						  (!is_secondary ? thread_cmd_pool.primary : thread_cmd_pool.secondary) :
+						  (!is_secondary ? thread_cmd_pool.compute_primary : thread_cmd_pool.compute_secondary));
 		if (cmd_pool) {
 			return true;
 		}
-		cmd_pool = vulkan_command_pool_storage::create_cmd_pool(dev, queue, is_secondary);
+		cmd_pool = vulkan_command_pool_storage::create_cmd_pool(dev, is_secondary);
 		
 		// register in per-thread destructor
-		if (!is_secondary) {
-			vulkan_command_pool_destructor.primary_pool = cmd_pool;
-		} else {
-			vulkan_command_pool_destructor.secondary_pool = cmd_pool;
-		}
+		vulkan_command_pool_destructor.register_pool(cmd_pool, is_secondary, type);
 		
 		// create command pool for this queue + device
 		const VkCommandPoolCreateInfo cmd_pool_info {
@@ -537,7 +566,17 @@ struct vulkan_queue_impl {
 	}
 	
 	vulkan_command_pool_t& get_thread_command_pool(const bool is_secondary) {
-		return (!is_secondary ? *thread_primary_cmd_pool : *thread_secondary_cmd_pool);
+		return (type == device_queue::QUEUE_TYPE::ALL ?
+				(!is_secondary ? *thread_cmd_pool.primary : *thread_cmd_pool.secondary) :
+				(!is_secondary ? *thread_cmd_pool.compute_primary : *thread_cmd_pool.compute_secondary));
+	}
+	
+	vulkan_command_pool_t* get_primary_pool() {
+		return (type == device_queue::QUEUE_TYPE::ALL ? thread_cmd_pool.primary : thread_cmd_pool.compute_primary);
+	}
+	
+	vulkan_command_pool_t* get_secondary_pool() {
+		return (type == device_queue::QUEUE_TYPE::ALL ? thread_cmd_pool.secondary : thread_cmd_pool.compute_secondary);
 	}
 };
 
@@ -559,7 +598,7 @@ vulkan_queue::vulkan_queue(const device& dev_, const VkQueue queue_, const uint3
 						   const uint32_t queue_index_, const QUEUE_TYPE queue_type_) :
 device_queue(dev_, queue_type_), vk_queue(queue_), family_index(family_index_), queue_index(queue_index_) {
 	// create impl
-	impl = std::make_unique<vulkan_queue_impl>(*this, (const vulkan_device&)dev_, family_index);
+	impl = std::make_unique<vulkan_queue_impl>(*this, (const vulkan_device&)dev_, family_index, queue_type_);
 }
 
 vulkan_queue::~vulkan_queue() {
@@ -693,12 +732,12 @@ std::vector<vulkan_queue::signal_fence_t> vulkan_queue::encode_signal_fences(con
 
 vulkan_command_buffer vulkan_queue::make_command_buffer(const char* name) const {
 	impl->create_thread_primary_command_pool();
-	return impl->thread_primary_cmd_pool->make_command_buffer(name);
+	return impl->get_primary_pool()->make_command_buffer(name);
 }
 
 vulkan_command_buffer vulkan_queue::make_secondary_command_buffer(const char* name) const {
 	impl->create_thread_secondary_command_pool();
-	return impl->thread_secondary_cmd_pool->make_command_buffer(name);
+	return impl->get_secondary_pool()->make_command_buffer(name);
 }
 
 void vulkan_queue::free_command_buffer(vulkan_command_buffer&& cmd_buffer) const {
@@ -708,10 +747,10 @@ void vulkan_queue::free_command_buffer(vulkan_command_buffer&& cmd_buffer) const
 	
 	if (!cmd_buffer.is_secondary) {
 		impl->create_thread_primary_command_pool();
-		impl->thread_primary_cmd_pool->release_unsubmitted_command_buffer(std::move(cmd_buffer));
+		impl->get_primary_pool()->release_unsubmitted_command_buffer(std::move(cmd_buffer));
 	} else {
 		impl->create_thread_secondary_command_pool();
-		impl->thread_secondary_cmd_pool->release_unsubmitted_command_buffer(std::move(cmd_buffer));
+		impl->get_secondary_pool()->release_unsubmitted_command_buffer(std::move(cmd_buffer));
 	}
 }
 
@@ -722,7 +761,7 @@ void vulkan_queue::submit_command_buffer(vulkan_command_buffer&& cmd_buffer,
 										 const bool blocking) const {
 	impl->create_thread_command_pool(cmd_buffer.is_secondary);
 	vulkan_command_pool_t& pool = impl->get_thread_command_pool(cmd_buffer.is_secondary);
-	pool.submit_command_buffer(std::move(cmd_buffer), std::move(completion_handler),
+	pool.submit_command_buffer(*this, std::move(cmd_buffer), std::move(completion_handler),
 							   blocking, std::move(wait_fences),
 							   std::move(signal_fences));
 }
@@ -743,8 +782,8 @@ bool vulkan_queue::execute_secondary_command_buffer(const vulkan_command_buffer&
 	vkCmdExecuteCommands(primary_cmd_buffer.cmd_buffer, 1, &secondary_cmd_buffer.cmd_buffer);
 	
 	// we need to hold onto the secondary cmd buffer until the primary cmd buffer has completed
-	assert(impl->thread_secondary_cmd_pool);
-	add_completion_handler(primary_cmd_buffer, [sec_pool = impl->thread_secondary_cmd_pool, sec_cmd_buffer_idx = secondary_cmd_buffer.index]() {
+	assert(impl->get_secondary_pool());
+	add_completion_handler(primary_cmd_buffer, [sec_pool = impl->get_secondary_pool(), sec_cmd_buffer_idx = secondary_cmd_buffer.index]() {
 		sec_pool->release_secondary_command_buffer(sec_cmd_buffer_idx);
 	});
 	secondary_cmd_buffer.reset();

@@ -181,6 +181,11 @@ public:
 	//! feature support: mesh shading with multi-view rendering support (at least 4 layers/views)
 	bool mesh_shading_multi_view_support { false };
 	
+	//! feature support: vertex shader stage supports sub-group operations
+	//! NOTE: generally true for all supported devices, but there are special exceptions (e.g. llvmpipe)
+	//! NOTE: devices that don't have support for this are only supported on a best-efforts basis
+	bool vertex_shader_subgroup_support { true };
+	
 #if !defined(FLOOR_NO_VULKAN)
 	//! VK_PIPELINE_STAGE_2_ALL_GRAPHICS with actually all graphics bits, including task/mesh shaders if supported
 	VkFlags64 pipeline_stage_all_graphics { 0u };

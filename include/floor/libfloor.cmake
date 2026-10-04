@@ -233,8 +233,10 @@ if (LIBFLOOR_USER)
 				debug "/opt/floor/lib/libfloord.a"
 				optimized "/opt/floor/lib/libfloor.a")
 		else ()
-			target_link_options(${PROJECT_NAME} PRIVATE "SHELL:-L/opt/floor/lib")
-			target_link_libraries(${PROJECT_NAME} PRIVATE debug libfloord optimized libfloor)
+			# TODO: user flag to determinbe whether .so or .a should be linked
+			target_link_libraries(${PROJECT_NAME} PRIVATE
+				debug "/opt/floor/lib/libfloord.so"
+				optimized "/opt/floor/lib/libfloor.so")
 		endif (BUILD_STANDALONE)
 	endif (UNIX)
 endif (LIBFLOOR_USER)

@@ -222,7 +222,7 @@ protected:
 	safe_mutex acquisition_lock;
 
 	//! max swapchain image count limit
-	static constexpr const uint32_t max_swapchain_image_count { 8u };
+	static constexpr const uint32_t max_swapchain_image_count { 4u };
 	//! multiplier against the actual image count (conservative estimate) -> use in acquisition_semas/present_semas
 	static constexpr const uint32_t semaphore_multiplier { 2u };
 	//! NOTE: semaphores do not map 1:1 to swapchain_images
