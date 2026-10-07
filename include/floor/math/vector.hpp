@@ -796,6 +796,36 @@ public:
 		return *this;
 	}
 	
+	//! fused-multiply-add assign of "this = (this * b-scalar) + c-scalar"
+	constexpr vector_type& fma(const decayed_scalar_type b, const decayed_scalar_type c) {
+		x = vector_helper<decayed_scalar_type>::fma(x, b, c);
+#if FLOOR_VECTOR_WIDTH >= 2
+		y = vector_helper<decayed_scalar_type>::fma(y, b, c);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+		z = vector_helper<decayed_scalar_type>::fma(z, b, c);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+		w = vector_helper<decayed_scalar_type>::fma(w, b, c);
+#endif
+		return *this;
+	}
+	//! fused-multiply-add copy of "(this * b-scalar) + c-scalar"
+	constexpr vector_type fmaed(const decayed_scalar_type b, const decayed_scalar_type c) const {
+		return {
+			vector_helper<decayed_scalar_type>::fma(x, b, c)
+#if FLOOR_VECTOR_WIDTH >= 2
+			, vector_helper<decayed_scalar_type>::fma(y, b, c)
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			, vector_helper<decayed_scalar_type>::fma(z, b, c)
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			, vector_helper<decayed_scalar_type>::fma(w, b, c)
+#endif
+		};
+	}
+	
 	//! fused-multiply-add assign of "this = (this * b_vec) + c_vec"
 	constexpr vector_type& fma(const vector_type& b_vec, const vector_type& c_vec) {
 		x = vector_helper<decayed_scalar_type>::fma(x, b_vec.x, c_vec.x);
