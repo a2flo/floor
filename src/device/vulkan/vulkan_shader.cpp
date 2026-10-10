@@ -309,7 +309,7 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw_internal(const device_que
 			// as sets must be contiguous, but any of them may be optional, just set them all individually rather than making this a mess
 			static constexpr const VkDeviceSize offset { 0 };
 			uint32_t set_count = 0u;
-			if (task_shader->desc_buffer.desc_buffer_container) {
+			if (task_shader && task_shader->desc_buffer.desc_buffer_container) {
 				const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
 					.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
 					.pNext = nullptr,
@@ -338,7 +338,7 @@ std::vector<VkImageMemoryBarrier2> vulkan_shader::draw_internal(const device_que
 				vkCmdSetDescriptorBufferOffsets2EXT(cmd_buffer.cmd_buffer, &set_desc_buffer_offsets_info);
 				++set_count;
 			}
-			if (fragment_shader->desc_buffer.desc_buffer_container) {
+			if (fragment_shader && fragment_shader->desc_buffer.desc_buffer_container) {
 				const VkSetDescriptorBufferOffsetsInfoEXT set_desc_buffer_offsets_info {
 					.sType = VK_STRUCTURE_TYPE_SET_DESCRIPTOR_BUFFER_OFFSETS_INFO_EXT,
 					.pNext = nullptr,

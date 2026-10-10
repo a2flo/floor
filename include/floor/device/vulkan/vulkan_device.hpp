@@ -191,6 +191,8 @@ public:
 	VkFlags64 pipeline_stage_all_graphics { 0u };
 	//! VK_SHADER_STAGE_ALL_GRAPHICS with actually all graphics bits, including task/mesh shaders if supported
 	VkFlags shader_stage_all_graphics { 0u };
+	//! all supported shader stages (at least vertex/fragment/compute), includes task/mesh shaders if supported
+	VkFlags shader_stage_all_supported { 0u };
 	
 	// put these at the end, b/c they are rather large
 	//! fixed sampler descriptor set
@@ -203,6 +205,7 @@ public:
 #else
 	uint64_t pipeline_stage_all_graphics { 0u };
 	uint32_t shader_stage_all_graphics { 0u };
+	uint32_t shader_stage_all_supported { 0u };
 	uint64_t _fixed_sampler_desc_set_layout;
 	std::vector<uint64_t> _fixed_sampler_set;
 #endif

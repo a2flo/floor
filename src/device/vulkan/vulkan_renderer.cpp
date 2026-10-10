@@ -313,6 +313,7 @@ bool vulkan_renderer::begin(const dynamic_render_state_t dynamic_render_state) {
 	
 	if (is_dynamic_cull_state) {
 		internal->cur_cull_mode = vulkan_cull_mode_from_cull_mode(pipeline_desc.cull_mode);
+		vkCmdSetCullMode(render_cmd_buffer.cmd_buffer, internal->cur_cull_mode);
 	}
 	
 	const auto& pass_clear_values = vk_pass.get_vulkan_clear_values(multi_view);

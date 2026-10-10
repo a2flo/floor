@@ -346,8 +346,11 @@ static bool create_function_entry_descriptor_buffer(vulkan_function_entry& entry
 					log_error("function $ has an argument buffer at index $, but no argument buffer info exists", func_name, i);
 					return false;
 				}
+				
+				// NOTE: since we may want to use arg buffers created for this function in other functions/stages as well, use "shader_stage_all_supported"
 				auto arg_buf_layout = build_descriptor_set_layout(dev, func_name + ".arg_buffer@" + std::to_string(i),
-																  *info.args[i].argument_buffer_info, stage);
+																  *info.args[i].argument_buffer_info,
+																  VkShaderStageFlagBits(vk_dev.shader_stage_all_supported));
 				if (!arg_buf_layout) {
 					log_error("failed to create argument buffer descriptor set layout at index $ in function $", i, func_name);
 					return false;

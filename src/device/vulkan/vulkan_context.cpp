@@ -131,8 +131,9 @@ using aftermath_enable_gpu_crash_dumps_f = uint32_t (*)(uint32_t version, uint32
 static uint32_t aftermath_gpu_crash_dump(const void* gpu_crash_dump, const uint32_t gpu_crash_dump_size, void*) {
 	if (gpu_crash_dump && gpu_crash_dump_size > 0) {
 		static std::atomic<uint32_t> counter = 0;
-		file_io::buffer_to_file("aftermath_gpu_crash_dump_" + floor::get_app_name() + "_" + std::to_string(counter++) + ".nv-gpudmp",
-								(const char*)gpu_crash_dump, gpu_crash_dump_size);
+		const auto crash_dump_file_name = "aftermath_gpu_crash_dump_" + floor::get_app_name() + "_" + std::to_string(counter++) + ".nv-gpudmp";
+		file_io::buffer_to_file(crash_dump_file_name, (const char*)gpu_crash_dump, gpu_crash_dump_size);
+		log_error("GPU crash: wrote crash dump: $", crash_dump_file_name);
 	}
 	return 0;
 }
@@ -167,8 +168,11 @@ static bool setup_nvidia_aftermath(vulkan_context* ctx) {
 		
 		// setup/enable Aftermath and register our function callbacks (this is the minimum to enable shader debug info and crash dumps)
 		static auto aftermath_enable_gpu_crash_dumps = (aftermath_enable_gpu_crash_dumps_f)enable_gpu_crash_dumps_fptr;
-		aftermath_enable_gpu_crash_dumps(0x212 /* 2022.2 / 2.18 -> compat with R515+ */, 2 /* Vulkan */, 0 /* we want immediate shader debug info */,
-										 &aftermath_gpu_crash_dump, &aftermath_shader_debug_info, nullptr, nullptr, ctx);
+		if (auto ret = aftermath_enable_gpu_crash_dumps(0x21B /* 2026.3 / 2.27 -> compat with at least R615+ */, 2 /* Vulkan */, 0 /* we want immediate shader debug info */,
+														&aftermath_gpu_crash_dump, &aftermath_shader_debug_info, nullptr, nullptr, ctx);
+			ret != 1) {
+			log_error("failed to init Aftermath: $", ret);
+		}
 		
 		aftermath_init_successful = true;
 	});
@@ -2286,10 +2290,12 @@ enable_renderer(enable_renderer_) {
 		device.vertex_shader_subgroup_support = vertex_shader_subgroup_support;
 		
 		device.pipeline_stage_all_graphics = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT;
-		device.shader_stage_all_graphics = VK_SHADER_STAGE_ALL_GRAPHICS;
+		device.shader_stage_all_graphics = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+		device.shader_stage_all_supported = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 		if (mesh_shading_support) {
 			device.pipeline_stage_all_graphics |= VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT | VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT;
 			device.shader_stage_all_graphics |= VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT;
+			device.shader_stage_all_supported |= VK_SHADER_STAGE_TASK_BIT_EXT | VK_SHADER_STAGE_MESH_BIT_EXT;
 		}
 		
 		// check host image copy support (via extension or core)
@@ -3792,7 +3798,7 @@ void vulkan_context::create_fixed_sampler_set() const {
 				.binding = i,
 				.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
 				.descriptorCount = 1,
-				.stageFlags = VK_SHADER_STAGE_ALL,
+				.stageFlags = vk_dev.shader_stage_all_supported,
 				.pImmutableSamplers = &vk_dev.fixed_sampler_set[i],
 			};
 		}
@@ -3801,8 +3807,8 @@ void vulkan_context::create_fixed_sampler_set() const {
 			.pNext = nullptr,
 			.flags = (VK_DESCRIPTOR_SET_LAYOUT_CREATE_EMBEDDED_IMMUTABLE_SAMPLERS_BIT_EXT |
 					  VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT),
-				.bindingCount = max_sampler_combinations,
-				.pBindings = fixed_sampler_bindings.data(),
+			.bindingCount = max_sampler_combinations,
+			.pBindings = fixed_sampler_bindings.data(),
 		};
 		
 		VK_CALL_CONT(vkCreateDescriptorSetLayout(vk_dev.device, &desc_set_layout_info, nullptr,
