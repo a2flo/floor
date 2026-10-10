@@ -20,6 +20,9 @@ else ()
 		target_compile_options(${PROJECT_NAME} PUBLIC -O0 -gdwarf-5 -DFLOOR_DEBUG -D_DEBUG -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer -fstandalone-debug)
 	endif ()
 endif (MSVC)
+if (CMAKE_BUILD_TYPE MATCHES "DISTRIBUTION" OR CMAKE_BUILD_TYPE MATCHES "Distribution")
+	target_compile_options(${PROJECT_NAME} PUBLIC -DFLOOR_DISTRIBUTION)
+endif ()
 
 if (UNIX OR MINGW)
 	set(CMAKE_INCLUDE_SYSTEM_FLAG_CXX "-isystem ")
@@ -33,19 +36,20 @@ if (WIN32)
 	target_link_libraries(${PROJECT_NAME} PRIVATE mincore)
 endif (WIN32)
 
-if (CMAKE_BUILD_TYPE MATCHES "RELEASE" OR CMAKE_BUILD_TYPE MATCHES "Release")
+if (CMAKE_BUILD_TYPE MATCHES "RELEASE" OR CMAKE_BUILD_TYPE MATCHES "Release" OR
+	CMAKE_BUILD_TYPE MATCHES "DISTRIBUTION" OR CMAKE_BUILD_TYPE MATCHES "Distribution")
 	if (NOT MSVC)
-		target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:RELEASE>:-O3>")
+		target_compile_options(${PROJECT_NAME} PUBLIC "$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:DISTRIBUTION>>:-O3>")
 	else ()
-		target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:RELEASE>:/clang:-O3>")
+		target_compile_options(${PROJECT_NAME} PUBLIC "$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:DISTRIBUTION>>:/clang:-O3>")
 	endif ()
 endif ()
-target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:RELEASE>:-fstrict-aliasing>")
+target_compile_options(${PROJECT_NAME} PUBLIC "$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:DISTRIBUTION>>:-fstrict-aliasing>")
 if (MSVC)
-	target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:RELEASE>:/fp:fast>")
+	target_compile_options(${PROJECT_NAME} PUBLIC "$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:DISTRIBUTION>>:/fp:fast>")
 else ()
-	target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:RELEASE>:-ffast-math>")
-	target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:RELEASE>:-funroll-loops>")
+	target_compile_options(${PROJECT_NAME} PUBLIC "$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:DISTRIBUTION>>:-ffast-math>")
+	target_compile_options(${PROJECT_NAME} PUBLIC "$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:DISTRIBUTION>>:-funroll-loops>")
 endif (MSVC)
 
 if (WITH_ASAN)
@@ -127,6 +131,7 @@ endif (NOT MSVC)
 
 ## output postfix
 set_target_properties(${PROJECT_NAME} PROPERTIES DEBUG_POSTFIX "d")
+set_target_properties(${PROJECT_NAME} PROPERTIES DISTRIBUTION_POSTFIX "_dist")
 
 # on MinGW, ignore casing warnings (there is an issue where this triggers warnings even if the casing is correct)
 if (MINGW)
@@ -231,12 +236,14 @@ if (LIBFLOOR_USER)
 		if (BUILD_STANDALONE)
 			target_link_libraries(${PROJECT_NAME} PRIVATE
 				debug "/opt/floor/lib/libfloord.a"
-				optimized "/opt/floor/lib/libfloor.a")
+				$<$<CONFIG:RELEASE>:/opt/floor/lib/libfloor.a>
+				$<$<CONFIG:DISTRIBUTION>:/opt/floor/lib/libfloor_dist.a>)
 		else ()
-			# TODO: user flag to determinbe whether .so or .a should be linked
+			# TODO: user flag to determine whether .so or .a should be linked (distribution is always .a)
 			target_link_libraries(${PROJECT_NAME} PRIVATE
 				debug "/opt/floor/lib/libfloord.so"
-				optimized "/opt/floor/lib/libfloor.so")
+				$<$<CONFIG:RELEASE>:/opt/floor/lib/libfloor.so>
+				$<$<CONFIG:DISTRIBUTION>:/opt/floor/lib/libfloor_dist.a>)
 		endif (BUILD_STANDALONE)
 	endif (UNIX)
 endif (LIBFLOOR_USER)

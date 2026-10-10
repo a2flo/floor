@@ -51,9 +51,11 @@
 #endif
 
 #if defined(FLOOR_DEBUG) || defined(DEBUG)
-#define FLOOR_DEBUG_STR " (debug)"
+#define FLOOR_BUILD_TYPE_STR " (debug)"
+#elif defined(FLOOR_DISTRIBUTION)
+#define FLOOR_BUILD_TYPE_STR " (distribution)"
 #else
-#define FLOOR_DEBUG_STR ""
+#define FLOOR_BUILD_TYPE_STR " (release)"
 #endif
 
 #if defined(_MSC_VER)
@@ -84,7 +86,7 @@
 #error "unhandled arch"
 #endif
 
-#define FLOOR_VERSION_STRING (std::string("floor ") + FLOOR_PLATFORM+FLOOR_DEBUG_STR \
+#define FLOOR_VERSION_STRING (std::string("floor ") + FLOOR_PLATFORM+FLOOR_BUILD_TYPE_STR \
 " v" + (FLOOR_FULL_VERSION) + FLOOR_BUILD_DATE_TIME + " built with " FLOOR_COMPILER FLOOR_LIBCXX)
 
 #define FLOOR_SOURCE_URL "https://github.com/a2flo/floor"

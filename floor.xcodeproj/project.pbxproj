@@ -2061,10 +2061,309 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		5C075950307ADA21007B6A3E /* Distribution configuration for PBXProject "floor" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				APP_SHORTCUTS_ENABLE_FLEXIBLE_MATCHING = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
+				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
+				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++26";
+				CLANG_CXX_STANDARD_LIBRARY_HARDENING = none;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_ARC_EXCEPTIONS = YES;
+				CLANG_WARN_ASSIGN_ENUM = YES;
+				CLANG_WARN_ATOMIC_IMPLICIT_SEQ_CST = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_IMPLICIT_FALLTHROUGH = YES;
+				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_EXPLICIT_OWNERSHIP_TYPE = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_REPEATED_USE_OF_WEAK = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_SEMICOLON_BEFORE_METHOD_BODY = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				COMPILATION_CACHE_ENABLE_CACHING = NO;
+				COMPILATION_CACHE_ENABLE_DIAGNOSTIC_REMARKS = NO;
+				CONFIGURATION_BUILD_DIR = "${SRCROOT}/bin";
+				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = 0.5.2;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEPLOYMENT_POSTPROCESSING = YES;
+				DYLIB_COMPATIBILITY_VERSION = 0.5.2;
+				DYLIB_CURRENT_VERSION = 0.5.2;
+				ENABLE_CODE_COVERAGE = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
+				GCC_C_LANGUAGE_STANDARD = gnu23;
+				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
+				GCC_ENABLE_PASCAL_STRINGS = NO;
+				GCC_FAST_MATH = YES;
+				GCC_INCREASE_PRECOMPILED_HEADER_SHARING = YES;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 3;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = floor_prefix.pch;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"FLOOR_REPRODUCIBLE_BUILD=1",
+					"FLOOR_DISTRIBUTION=1",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
+				GCC_UNROLL_LOOPS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_FIELD_INITIALIZERS = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
+				GCC_WARN_PEDANTIC = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					include,
+					src,
+				);
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@loader_path/../Resources",
+					"@loader_path/../Frameworks",
+					/usr/lib,
+				);
+				LLVM_LTO = YES;
+				OTHER_CFLAGS = "-fparse-all-comments";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(OTHER_CFLAGS)",
+					"-fno-elide-type",
+					"-fdiagnostics-show-template-tree",
+					"-ftemplate-backtrace-limit=0",
+				);
+				OTHER_LDFLAGS = (
+					"-framework",
+					SDL3,
+				);
+				PRODUCT_NAME = libfloor_dist;
+				SDKROOT = macosx;
+				STRINGS_FILE_OUTPUT_ENCODING = "UTF-8";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SYMROOT = "${SRCROOT}/bin";
+				WARNING_CFLAGS = (
+					"-Weverything",
+					"-Wframe-larger-than=16384",
+					"-Wthread-safety",
+					"-Wthread-safety-negative",
+					"-Wthread-safety-beta",
+					"-Wthread-safety-verbose",
+					"-Wno-c++98-compat",
+					"-Wno-c++98-compat-pedantic",
+					"-Wno-c++11-compat",
+					"-Wno-c++11-compat-pedantic",
+					"-Wno-c++14-compat",
+					"-Wno-c++14-compat-pedantic",
+					"-Wno-c++17-compat",
+					"-Wno-c++17-compat-pedantic",
+					"-Wno-c++17-extensions",
+					"-Wno-c++20-compat",
+					"-Wno-c++20-compat-pedantic",
+					"-Wno-c++20-extensions",
+					"-Wno-c++23-compat",
+					"-Wno-c++23-compat-pedantic",
+					"-Wno-c++23-extensions",
+					"-Wno-c++26-compat",
+					"-Wno-c++26-compat-pedantic",
+					"-Wno-c++26-extensions",
+					"-Wno-gcc-compat",
+					"-Wno-gnu",
+					"-Wno-c99-extensions",
+					"-Wno-c11-extensions",
+					"-Wno-c17-extensions",
+					"-Wno-c23-extensions",
+					"-Wno-nullability-extension",
+					"-Wno-header-hygiene",
+					"-Wno-documentation",
+					"-Wno-system-headers",
+					"-Wno-global-constructors",
+					"-Wno-padded",
+					"-Wno-packed",
+					"-Wno-switch-enum",
+					"-Wno-switch-default",
+					"-Wno-exit-time-destructors",
+					"-Wno-unknown-warning-option",
+					"-Wno-nested-anon-types",
+					"-Wno-old-style-cast",
+					"-Wno-date-time",
+					"-Wno-reserved-id-macro",
+					"-Wno-documentation-unknown-command",
+					"-Wno-partial-availability",
+					"-Wno-return-std-move-in-c++11",
+					"-Wno-c11-extensions",
+					"-Wno-poison-system-directories",
+					"-Wno-nan-infinity-disabled",
+					"-Wno-unsafe-buffer-usage-in-container",
+					"-Wno-missing-include-dirs",
+					"-Wno-missing-designated-field-initializers",
+					"-Wno-reserved-identifier",
+					"-Wno-lifetime-safety-invalidation",
+					"-Wno-lifetime-safety-cross-tu-suggestions",
+					"-Wno-lifetime-safety-intra-tu-suggestions",
+					"-Wno-lifetime-safety-return-stack-addr-moved",
+					"-Wno-lifetime-safety-dangling-field",
+				);
+			};
+			name = Distribution;
+		};
+		5C075951307ADA21007B6A3E /* Distribution configuration for PBXNativeTarget "floor" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_X86_VECTOR_INSTRUCTIONS = default;
+				DEAD_CODE_STRIPPING = YES;
+				DYLIB_INSTALL_NAME_BASE = "";
+				EXECUTABLE_EXTENSION = a;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/macos-arm64_x86_64",
+				);
+				LD_DYLIB_INSTALL_NAME = "";
+				LIBRARY_SEARCH_PATHS = (
+					/usr/local/lib,
+					/opt/homebrew/lib,
+				);
+				MACH_O_TYPE = staticlib;
+				MACOSX_DEPLOYMENT_TARGET = 15.6;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-isystem",
+					/usr/local/include,
+					"-isystem",
+					/opt/homebrew/include,
+					"-iframework",
+					/Library/Frameworks,
+				);
+				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
+			};
+			name = Distribution;
+		};
+		5C075952307ADA21007B6A3E /* Distribution configuration for PBXNativeTarget "floor_ios" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_X86_VECTOR_INSTRUCTIONS = default;
+				DSTROOT = /tmp/floor_ios.dst;
+				FRAMEWORK_SEARCH_PATHS = "$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64";
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64_x86_64-simulator";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					FLOOR_IOS,
+					FLOOR_NO_CUDA,
+					FLOOR_NO_OPENCL,
+				);
+				INSTALL_PATH = /usr/lib/;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_DYLIB_INSTALL_NAME = "";
+				LD_RUNPATH_SEARCH_PATHS = "";
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = floor_static;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Distribution;
+		};
+		5C075953307ADA21007B6A3E /* Distribution configuration for PBXNativeTarget "floor_visionos" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_X86_VECTOR_INSTRUCTIONS = default;
+				DSTROOT = /tmp/floor_visionos.dst;
+				FRAMEWORK_SEARCH_PATHS = "$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64";
+				"FRAMEWORK_SEARCH_PATHS[sdk=xrsimulator*]" = "$(LOCAL_LIBRARY_DIR)/Frameworks/SDL3.xcframework/ios-arm64_x86_64-simulator";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					FLOOR_VISIONOS,
+					FLOOR_NO_CUDA,
+					FLOOR_NO_OPENCL,
+				);
+				INSTALL_PATH = /usr/lib/;
+				LD_DYLIB_INSTALL_NAME = "";
+				LD_RUNPATH_SEARCH_PATHS = "";
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = floor_visionos;
+				SDKROOT = xros;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "xros xrsimulator";
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = 7;
+				XROS_DEPLOYMENT_TARGET = 2.6;
+			};
+			name = Distribution;
+		};
+		5C075954307ADA21007B6A3E /* Distribution configuration for PBXLegacyTarget "floor_remote" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Distribution;
+		};
 		5C10916017D114BC007F536E /* Debug configuration for PBXProject "floor" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				APP_SHORTCUTS_ENABLE_FLEXIBLE_MATCHING = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -2072,6 +2371,7 @@
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++26";
+				CLANG_CXX_STANDARD_LIBRARY_HARDENING = fast;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_ARC_EXCEPTIONS = YES;
@@ -2254,6 +2554,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				APP_SHORTCUTS_ENABLE_FLEXIBLE_MATCHING = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -2261,6 +2562,7 @@
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++26";
+				CLANG_CXX_STANDARD_LIBRARY_HARDENING = fast;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_ARC_EXCEPTIONS = YES;
@@ -2665,6 +2967,7 @@
 			buildConfigurations = (
 				5C10916017D114BC007F536E /* Debug configuration for PBXProject "floor" */,
 				5C10916117D114BC007F536E /* Release configuration for PBXProject "floor" */,
+				5C075950307ADA21007B6A3E /* Distribution configuration for PBXProject "floor" */,
 			);
 			defaultConfigurationName = Release;
 		};
@@ -2673,6 +2976,7 @@
 			buildConfigurations = (
 				5C10916317D114BC007F536E /* Debug configuration for PBXNativeTarget "floor" */,
 				5C10916417D114BC007F536E /* Release configuration for PBXNativeTarget "floor" */,
+				5C075951307ADA21007B6A3E /* Distribution configuration for PBXNativeTarget "floor" */,
 			);
 			defaultConfigurationName = Release;
 		};
@@ -2681,6 +2985,7 @@
 			buildConfigurations = (
 				5C62E0A52C3E223200FF4E9A /* Debug configuration for PBXNativeTarget "floor_visionos" */,
 				5C62E0A62C3E223200FF4E9A /* Release configuration for PBXNativeTarget "floor_visionos" */,
+				5C075953307ADA21007B6A3E /* Distribution configuration for PBXNativeTarget "floor_visionos" */,
 			);
 			defaultConfigurationName = Release;
 		};
@@ -2689,6 +2994,7 @@
 			buildConfigurations = (
 				5CBB61251D6367A000B09EEE /* Debug configuration for PBXLegacyTarget "floor_remote" */,
 				5CBB61261D6367A000B09EEE /* Release configuration for PBXLegacyTarget "floor_remote" */,
+				5C075954307ADA21007B6A3E /* Distribution configuration for PBXLegacyTarget "floor_remote" */,
 			);
 			defaultConfigurationName = Release;
 		};
@@ -2697,6 +3003,7 @@
 			buildConfigurations = (
 				5CC2F79518678AAD0031E08D /* Debug configuration for PBXNativeTarget "floor_ios" */,
 				5CC2F79618678AAD0031E08D /* Release configuration for PBXNativeTarget "floor_ios" */,
+				5C075952307ADA21007B6A3E /* Distribution configuration for PBXNativeTarget "floor_ios" */,
 			);
 			defaultConfigurationName = Release;
 		};
