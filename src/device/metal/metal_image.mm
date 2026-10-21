@@ -389,7 +389,9 @@ bool metal_image::create_internal(const bool copy_host_data, const device_queue&
 		[desc setTextureType:tex_type];
 		
 		// and now for the fun bit: pixel format conversion ...
-		const auto metal_format = metal_context::pixel_format_from_image_type(image_type);
+		const auto metal_format = metal_context::pixel_format_from_image_type(image_type,
+																			  tex_type == MTLTextureTypeTextureBuffer &&
+																			  (image_type & IMAGE_TYPE::READ_WRITE) == IMAGE_TYPE::READ);
 		if (metal_format == MTLPixelFormatInvalid) {
 			log_error("unsupported image format: $ ($X)", image_type_to_string(image_type), image_type);
 			return false;

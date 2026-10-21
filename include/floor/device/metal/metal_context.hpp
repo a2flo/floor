@@ -213,7 +213,7 @@ public:
 	//! returns the IMAGE_TYPE for the specified Metal "pixel_format", returns IMAGE_TYPE::NONE if there is no match
 	static IMAGE_TYPE image_type_from_pixel_format(const MTLPixelFormat pixel_format);
 	//! returns the Metal pixel format for the specified "image_type", returns MTLPixelFormatInvalid if there is no match
-	static MTLPixelFormat pixel_format_from_image_type(const IMAGE_TYPE image_type);
+	static MTLPixelFormat pixel_format_from_image_type(const IMAGE_TYPE image_type, const bool is_read_only_tex_buf = false);
 #endif
 	
 protected:

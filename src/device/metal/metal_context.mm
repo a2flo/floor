@@ -219,7 +219,7 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 #endif
 		
 		// find max supported Apple* family
-		static constexpr const auto max_gpu_family = MTLGPUFamilyApple10;
+		static constexpr const auto max_gpu_family = MTLGPUFamilyApple10 + 1 /* == MTLGPUFamilyApple11 */;
 		device.family_tier = 0;
 		for (auto family = MTLGPUFamilyApple1; family <= max_gpu_family; family = MTLGPUFamily((NSInteger)family + 1)) {
 			if ([dev supportsFamily:family]) {
@@ -280,8 +280,17 @@ device_context(ctx_flags, has_toolchain_), vr_ctx(vr_ctx_), enable_renderer(enab
 			case 10:
 				device.units = 6;
 				device.mem_clock = 3200; // TODO: RAM clock
-				device.max_image_1d_dim = { 16384 };
-				device.max_image_2d_dim = { 16384, 16384 };
+				device.max_image_1d_dim = { 32768 };
+				device.max_image_2d_dim = { 32768, 32768 };
+				device.max_total_local_size = 1024;
+				break;
+				
+			// A20 / M6
+			case 11:
+				device.units = 7;
+				device.mem_clock = 3200; // TODO: RAM clock
+				device.max_image_1d_dim = { 32768 };
+				device.max_image_2d_dim = { 32768, 32768 };
 				device.max_total_local_size = 1024;
 				break;
 		}
@@ -1453,6 +1462,20 @@ IMAGE_TYPE metal_context::image_type_from_pixel_format(const MTLPixelFormat pixe
 		// RGB
 		{ MTLPixelFormatRG11B10Float, IMAGE_TYPE::RG11B10F },
 		{ MTLPixelFormatRGB9E5Float, IMAGE_TYPE::RGB9E5F },
+#if defined(__MAC_27_2) || defined(__IPHONE_27_2) || defined(__VISIONOS_27_2)
+		{ MTLPixelFormatRGB8Unorm, IMAGE_TYPE::RGB8UI_NORM },
+		{ MTLPixelFormatRGB8Snorm, IMAGE_TYPE::RGB8I_NORM },
+		{ MTLPixelFormatRGB8Uint, IMAGE_TYPE::RGB8UI },
+		{ MTLPixelFormatRGB8Sint, IMAGE_TYPE::RGB8I },
+		{ MTLPixelFormatRGB16Unorm, IMAGE_TYPE::RGB16UI_NORM },
+		{ MTLPixelFormatRGB16Snorm, IMAGE_TYPE::RGB16I_NORM },
+		{ MTLPixelFormatRGB16Uint, IMAGE_TYPE::RGB16UI },
+		{ MTLPixelFormatRGB16Sint, IMAGE_TYPE::RGB16I },
+		{ MTLPixelFormatRGB16Float, IMAGE_TYPE::RGB16F },
+		{ MTLPixelFormatRGB32Uint, IMAGE_TYPE::RGB32UI },
+		{ MTLPixelFormatRGB32Sint, IMAGE_TYPE::RGB32I },
+		{ MTLPixelFormatRGB32Float, IMAGE_TYPE::RGB32F },
+#endif
 		// RGBA
 		{ MTLPixelFormatRGBA8Unorm, IMAGE_TYPE::RGBA8UI_NORM },
 		{ MTLPixelFormatRGBA8Snorm, IMAGE_TYPE::RGBA8I_NORM },
@@ -1550,7 +1573,7 @@ IMAGE_TYPE metal_context::image_type_from_pixel_format(const MTLPixelFormat pixe
 	return lut_iter->second;
 }
 
-MTLPixelFormat metal_context::pixel_format_from_image_type(const IMAGE_TYPE image_type) {
+MTLPixelFormat metal_context::pixel_format_from_image_type(const IMAGE_TYPE image_type, const bool is_read_only_tex_buf) {
 	static const std::unordered_map<IMAGE_TYPE, MTLPixelFormat> format_lut {
 		// R
 		{ IMAGE_TYPE::R8UI_NORM, MTLPixelFormatR8Unorm },
@@ -1581,19 +1604,6 @@ MTLPixelFormat metal_context::pixel_format_from_image_type(const IMAGE_TYPE imag
 		// RGB
 		{ IMAGE_TYPE::RG11B10F, MTLPixelFormatRG11B10Float },
 		{ IMAGE_TYPE::RGB9E5F, MTLPixelFormatRGB9E5Float },
-		// RGB -> RGBA
-		{ IMAGE_TYPE::RGB8UI_NORM, MTLPixelFormatRGBA8Unorm },
-		{ IMAGE_TYPE::RGB8I_NORM, MTLPixelFormatRGBA8Snorm },
-		{ IMAGE_TYPE::RGB8UI, MTLPixelFormatRGBA8Uint },
-		{ IMAGE_TYPE::RGB8I, MTLPixelFormatRGBA8Sint },
-		{ IMAGE_TYPE::RGB16UI_NORM, MTLPixelFormatRGBA16Unorm },
-		{ IMAGE_TYPE::RGB16I_NORM, MTLPixelFormatRGBA16Snorm },
-		{ IMAGE_TYPE::RGB16UI, MTLPixelFormatRGBA16Uint },
-		{ IMAGE_TYPE::RGB16I, MTLPixelFormatRGBA16Sint },
-		{ IMAGE_TYPE::RGB16F, MTLPixelFormatRGBA16Float },
-		{ IMAGE_TYPE::RGB32UI, MTLPixelFormatRGBA32Uint },
-		{ IMAGE_TYPE::RGB32I, MTLPixelFormatRGBA32Sint },
-		{ IMAGE_TYPE::RGB32F, MTLPixelFormatRGBA32Float },
 		// RGBA
 		{ IMAGE_TYPE::RGBA8UI_NORM, MTLPixelFormatRGBA8Unorm },
 		{ IMAGE_TYPE::RGBA8I_NORM, MTLPixelFormatRGBA8Snorm },
@@ -1686,6 +1696,49 @@ FLOOR_POP_WARNINGS()
 #endif
 		// TODO: special image formats, these are partially supported
 	};
+	
+	// prior to *OS 27.0 and for all non-buffer images or r/w buffer images, RGB formats are emulated via RGBA
+	static const std::unordered_map<IMAGE_TYPE, MTLPixelFormat> rgb_emu_format_lut {
+		// RGB -> RGBA
+		{ IMAGE_TYPE::RGB8UI_NORM, MTLPixelFormatRGBA8Unorm },
+		{ IMAGE_TYPE::RGB8I_NORM, MTLPixelFormatRGBA8Snorm },
+		{ IMAGE_TYPE::RGB8UI, MTLPixelFormatRGBA8Uint },
+		{ IMAGE_TYPE::RGB8I, MTLPixelFormatRGBA8Sint },
+		{ IMAGE_TYPE::RGB16UI_NORM, MTLPixelFormatRGBA16Unorm },
+		{ IMAGE_TYPE::RGB16I_NORM, MTLPixelFormatRGBA16Snorm },
+		{ IMAGE_TYPE::RGB16UI, MTLPixelFormatRGBA16Uint },
+		{ IMAGE_TYPE::RGB16I, MTLPixelFormatRGBA16Sint },
+		{ IMAGE_TYPE::RGB16F, MTLPixelFormatRGBA16Float },
+		{ IMAGE_TYPE::RGB32UI, MTLPixelFormatRGBA32Uint },
+		{ IMAGE_TYPE::RGB32I, MTLPixelFormatRGBA32Sint },
+		{ IMAGE_TYPE::RGB32F, MTLPixelFormatRGBA32Float },
+	};
+	const std::unordered_map<IMAGE_TYPE, MTLPixelFormat>* rgb_format_lut = &rgb_emu_format_lut;
+	
+#if defined(__MAC_27_2) || defined(__IPHONE_27_2) || defined(__VISIONOS_27_2)
+	static const std::unordered_map<IMAGE_TYPE, MTLPixelFormat> rgb_phys_format_lut {
+		// RGB
+		{ IMAGE_TYPE::RGB8UI_NORM, MTLPixelFormatRGB8Unorm },
+		{ IMAGE_TYPE::RGB8I_NORM, MTLPixelFormatRGB8Snorm },
+		{ IMAGE_TYPE::RGB8UI, MTLPixelFormatRGB8Uint },
+		{ IMAGE_TYPE::RGB8I, MTLPixelFormatRGB8Sint },
+		{ IMAGE_TYPE::RGB16UI_NORM, MTLPixelFormatRGB16Unorm },
+		{ IMAGE_TYPE::RGB16I_NORM, MTLPixelFormatRGB16Snorm },
+		{ IMAGE_TYPE::RGB16UI, MTLPixelFormatRGB16Uint },
+		{ IMAGE_TYPE::RGB16I, MTLPixelFormatRGB16Sint },
+		{ IMAGE_TYPE::RGB16F, MTLPixelFormatRGB16Float },
+		{ IMAGE_TYPE::RGB32UI, MTLPixelFormatRGB32Uint },
+		{ IMAGE_TYPE::RGB32I, MTLPixelFormatRGB32Sint },
+		{ IMAGE_TYPE::RGB32F, MTLPixelFormatRGB32Float },
+	};
+	if (is_read_only_tex_buf) {
+		// NOTE: needs 27.2 SDK, but supported on 27.0
+		if (@available(macOS 27.0, iOS 27.0, visionOS 27.0, *)) {
+			rgb_format_lut = &rgb_phys_format_lut;
+		}
+	}
+#endif
+	
 	const auto masked_image_type = (image_type & (IMAGE_TYPE::__DATA_TYPE_MASK |
 												  IMAGE_TYPE::__CHANNELS_MASK |
 												  IMAGE_TYPE::__COMPRESSION_MASK |
@@ -1695,9 +1748,13 @@ FLOOR_POP_WARNINGS()
 												  IMAGE_TYPE::FLAG_DEPTH |
 												  IMAGE_TYPE::FLAG_STENCIL |
 												  IMAGE_TYPE::FLAG_SRGB));
-	const auto metal_pixel_format = format_lut.find(masked_image_type);
+	
+	auto metal_pixel_format = format_lut.find(masked_image_type);
 	if (metal_pixel_format == format_lut.end()) {
-		return MTLPixelFormatInvalid;
+		metal_pixel_format = rgb_format_lut->find(masked_image_type);
+		if (metal_pixel_format == format_lut.end()) {
+			return MTLPixelFormatInvalid;
+		}
 	}
 	return metal_pixel_format->second;
 }
