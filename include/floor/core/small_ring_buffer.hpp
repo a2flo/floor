@@ -60,6 +60,25 @@ public:
 		return { ret_value, true };
 	}
 	
+	//! dequeues and discards a single value, returns true on success, false on failure
+	bool dequeue_discard() {
+		if (compute_current_readable_elements() == 0) {
+			return false;
+		}
+		advance_read_index();
+		return true;
+	}
+	
+	//! all-or-nothing dequeue and discard of multiple "discard_count" values,
+	//! returns true on success, false on failure
+	bool dequeue_discard_multiple(const uint32_t discard_count) {
+		if (compute_current_readable_elements() < discard_count) {
+			return false;
+		}
+		advance_read_index(discard_count);
+		return true;
+	}
+	
 	//! peeks at and returns the next readable value in the ring buffer w/o modifying the read index,
 	//! returns { value, success }
 	std::pair<data_type, bool> peek() const {
@@ -91,9 +110,18 @@ public:
 			}
 		}
 	}
+	//! NOTE: this may not modify any readable elements
+	template <typename F>
+	void peek_iterate(F&& cb) const {
+		for (uint32_t idx = 0u, offset = read_offset(), elem_count = readable_elements(); idx < elem_count; ++idx) {
+			if (cb(data[(offset + idx) % count])) {
+				break;
+			}
+		}
+	}
 	
 	//! returns the size (element count) of this ring buffer
-	constexpr size_t size() const {
+	static inline constexpr size_t size() {
 		return count;
 	}
 	
@@ -127,6 +155,11 @@ public:
 	//! returns true if the ring buffer is currently empty (no readable elements)
 	bool empty() const {
 		return (compute_current_readable_elements() == 0u);
+	}
+	
+	//! returns true if the ring buffer is currently full (no writable elements)
+	bool full() const {
+		return (compute_current_writable_elements() == 0u);
 	}
 	
 	//! gets the full ring buffer memory region
